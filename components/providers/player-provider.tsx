@@ -111,11 +111,18 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const toggleShuffle = React.useCallback(() => setShuffle((s) => !s), [])
 
   // Simulated playback clock (mock mode) — advances position while playing.
+  // Timestamp-based so that if timers are throttled while the tab is
+  // backgrounded or the device is asleep, the position catches up on resume.
   React.useEffect(() => {
     if (!MOCK_MODE || !isPlaying || !currentTrack) return
+    let last = Date.now()
     const id = window.setInterval(() => {
+      const now = Date.now()
+      const delta = (now - last) / 1000
+      last = now
       setPosition((p) => {
-        if (p + 1 >= duration) {
+        const np = p + delta
+        if (np >= duration) {
           if (repeat === "one") return 0
           // schedule advancing to the next track
           window.setTimeout(() => {
@@ -129,9 +136,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           }, 0)
           return 0
         }
-        return p + 1
+        return np
       })
-    }, 1000)
+    }, 500)
     return () => window.clearInterval(id)
   }, [isPlaying, currentTrack, duration, repeat, shuffle, queue.length])
 
@@ -159,6 +166,86 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     const audio = audioRef.current
     if (audio) audio.volume = muted ? 0 : volume
   }, [volume, muted])
+
+  // --- Background playback / lock-screen controls (MediaSession API) ---
+  // Lets audio keep playing and be controlled when the app loses focus, the
+  // screen locks, or the PWA is backgrounded (iOS Dynamic Island, Android
+  // notification, etc.). Requires real audio (backend stream) to produce sound
+  // while locked; metadata/controls are still published in mock mode.
+
+  // Publish the "now playing" metadata shown on the lock screen.
+  React.useEffect(() => {
+    if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return
+    if (!currentTrack) {
+      navigator.mediaSession.metadata = null
+      return
+    }
+    const rawCover = currentTrack.cover ?? ""
+    const cover = rawCover && typeof window !== "undefined" ? new URL(rawCover, window.location.origin).href : rawCover
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: currentTrack.title,
+      artist: currentTrack.artist,
+      album: currentTrack.album ?? "",
+      artwork: cover ? [
+        { src: cover, sizes: "256x256", type: "image/png" },
+        { src: cover, sizes: "512x512", type: "image/png" },
+      ] : [],
+    })
+  }, [currentTrack])
+
+  // Wire hardware / lock-screen control buttons to the player.
+  React.useEffect(() => {
+    if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return
+    const ms = navigator.mediaSession
+    const handlers: [MediaSessionAction, MediaSessionActionHandler | null][] = [
+      ["play", () => setIsPlaying(true)],
+      ["pause", () => setIsPlaying(false)],
+      ["previoustrack", () => prev()],
+      ["nexttrack", () => next()],
+      ["seekbackward", (d) => seek(position - (d.seekOffset ?? 10))],
+      ["seekforward", (d) => seek(position + (d.seekOffset ?? 10))],
+      ["seekto", (d) => (d.seekTime != null ? seek(d.seekTime) : undefined)],
+      ["stop", () => setIsPlaying(false)],
+    ]
+    for (const [action, handler] of handlers) {
+      try {
+        ms.setActionHandler(action, handler)
+      } catch {
+        /* action unsupported on this platform */
+      }
+    }
+    return () => {
+      for (const [action] of handlers) {
+        try {
+          ms.setActionHandler(action, null)
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  }, [prev, next, seek, position])
+
+  // Keep the lock-screen play/pause state in sync.
+  React.useEffect(() => {
+    if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return
+    navigator.mediaSession.playbackState = !currentTrack ? "none" : isPlaying ? "playing" : "paused"
+  }, [isPlaying, currentTrack])
+
+  // Keep the lock-screen scrubber position accurate.
+  React.useEffect(() => {
+    if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return
+    if (typeof navigator.mediaSession.setPositionState !== "function") return
+    if (!currentTrack || duration <= 0) return
+    try {
+      navigator.mediaSession.setPositionState({
+        duration,
+        position: Math.min(Math.max(position, 0), duration),
+        playbackRate: 1,
+      })
+    } catch {
+      /* invalid state (e.g. position > duration mid-transition) */
+    }
+  }, [position, duration, currentTrack])
 
   const value: PlayerContextValue = {
     currentTrack,
@@ -192,6 +279,11 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           ref={audioRef}
           onTimeUpdate={(e) => setPosition(e.currentTarget.currentTime)}
           onEnded={() => next()}
+          onPlay={() => setIsPlaying(true)}
+          onPause={() => setIsPlaying(false)}
+          preload="auto"
+          // Keeps audio alive in the background instead of forcing fullscreen video UI on iOS.
+          playsInline
           className="hidden"
         />
       )}

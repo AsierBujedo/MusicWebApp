@@ -130,6 +130,15 @@
   .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom);
   }
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  /* Header that clears the notch / Dynamic Island: content stays 4rem tall,
+     the status-bar inset is added on top and filled by the header background. */
+  .app-header-height {
+    height: calc(4rem + env(safe-area-inset-top));
+    padding-top: env(safe-area-inset-top);
+  }
 }
 
 @keyframes fade-in-up {

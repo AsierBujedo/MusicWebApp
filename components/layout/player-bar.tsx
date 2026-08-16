@@ -184,7 +184,7 @@ export function PlayerBar() {
       {/* Expanded full-screen player */}
       {expanded && (
         <div className="fixed inset-0 z-50 flex flex-col bg-gradient-to-b from-card to-background animate-in">
-          <div className="flex items-center justify-between px-5 py-4">
+          <div className="flex items-center justify-between px-5 pb-4 pt-[calc(1rem+env(safe-area-inset-top))]">
             <button onClick={() => setExpanded(false)} aria-label="Cerrar" className="text-muted-foreground hover:text-foreground">
               <ChevronDown className="h-6 w-6" />
             </button>
