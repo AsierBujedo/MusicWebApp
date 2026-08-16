@@ -1,118 +1,131 @@
-"""Music request lifecycle service.
+r"""Music request lifecycle (pure DB logic).
 
-A "music request" is a user asking the system to acquire a track that is not yet
-in the local library. The lifecycle is:
+A *request* is a user asking the system to acquire something not yet available
+locally. Lifecycle (matching the frontend ``RequestStatus`` contract):
 
-    pending -> searching -> downloading -> processing -> completed
-                                              \-> failed
+    PENDING -> APPROVED -> SEARCHING -> DOWNLOADING -> AVAILABLE
+       |            \-------------------------------\-> FAILED
+       \-> REJECTED
 
-State transitions are driven by a background worker (see worker.py) that polls
-the acquisition backend (slskd / DroppedNeedle). Every transition emits a
-realtime event so connected clients update instantly.
+Admins move PENDING -> APPROVED / REJECTED. A background worker then drives
+APPROVED -> SEARCHING -> DOWNLOADING -> AVAILABLE (or FAILED). This module only
+mutates rows and validates transitions; realtime events are emitted by the
+callers (routers / worker) so the DB layer stays synchronous and framework-free.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import List, Optional
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session as DbSession
 
-from ..core.events import event_manager
-from ..models.music_request import MusicRequest, RequestStatus
-from ..models.user import User
+from app.models.base import utcnow
+from app.models.music_request import MusicRequest
+from app.models.track import Track
+from app.models.user import User
 
+# Statuses where the request is still being worked on.
+ACTIVE_STATUSES = {"PENDING", "APPROVED", "SEARCHING", "DOWNLOADING"}
+TERMINAL_STATUSES = {"AVAILABLE", "FAILED", "REJECTED"}
 
 VALID_TRANSITIONS = {
-    RequestStatus.pending: {RequestStatus.searching, RequestStatus.failed, RequestStatus.cancelled},
-    RequestStatus.searching: {RequestStatus.downloading, RequestStatus.failed, RequestStatus.cancelled},
-    RequestStatus.downloading: {RequestStatus.processing, RequestStatus.failed, RequestStatus.cancelled},
-    RequestStatus.processing: {RequestStatus.completed, RequestStatus.failed},
-    RequestStatus.completed: set(),
-    RequestStatus.failed: {RequestStatus.pending},  # allow retry
-    RequestStatus.cancelled: {RequestStatus.pending},
+    "PENDING": {"APPROVED", "REJECTED", "FAILED"},
+    "APPROVED": {"SEARCHING", "FAILED"},
+    "SEARCHING": {"DOWNLOADING", "FAILED"},
+    "DOWNLOADING": {"AVAILABLE", "FAILED"},
+    "AVAILABLE": set(),
+    "REJECTED": {"PENDING"},  # retry
+    "FAILED": {"PENDING"},  # retry
 }
 
 
-def _now() -> datetime:
-    return datetime.now(timezone.utc)
+class RequestError(Exception):
+    """Domain error mapped to HTTP 400/409 by callers."""
 
 
-def create_request(db: Session, *, user: User, query: str, artist: Optional[str], title: Optional[str]) -> MusicRequest:
+def create_request(db: DbSession, *, user: User, type_: str, track: Track) -> MusicRequest:
+    """Create a PENDING request for ``track`` on behalf of ``user``.
+
+    Idempotent per (user, track): an already-active request is returned instead
+    of creating a duplicate."""
+    existing = db.scalar(
+        select(MusicRequest).where(
+            MusicRequest.requested_by == user.id,
+            MusicRequest.track_id == track.id,
+            MusicRequest.status.in_(ACTIVE_STATUSES),
+        )
+    )
+    if existing is not None:
+        return existing
+
     req = MusicRequest(
-        user_id=user.id,
-        query=query.strip(),
-        artist=(artist or "").strip() or None,
-        title=(title or "").strip() or None,
-        status=RequestStatus.pending,
-        progress=0,
+        requested_by=user.id,
+        type=type_,
+        track_id=track.id,
+        title=track.title,
+        artist=track.artist,
+        cover=track.cover,
+        status="PENDING",
+        progress=None,
     )
     db.add(req)
+
+    # Reflect the pending acquisition on the track itself.
+    track.status = "PENDING"
+    track.progress = None
+    track.updated_at = utcnow()
+
     db.commit()
     db.refresh(req)
-    event_manager.publish_threadsafe(
-        "request.created",
-        {"request": req.to_public()},
-        user_id=user.id,
-    )
     return req
 
 
-def list_requests(db: Session, *, user: User, include_all: bool = False) -> List[MusicRequest]:
+def list_requests(db: DbSession, *, user: Optional[User] = None) -> List[MusicRequest]:
+    """List requests. Scoped to ``user`` when given, otherwise all (admin view)."""
     stmt = select(MusicRequest).order_by(MusicRequest.created_at.desc())
-    if not include_all:
-        stmt = stmt.where(MusicRequest.user_id == user.id)
+    if user is not None:
+        stmt = stmt.where(MusicRequest.requested_by == user.id)
     return list(db.scalars(stmt).all())
 
 
-def get_request(db: Session, request_id: str) -> Optional[MusicRequest]:
+def get_request(db: DbSession, request_id: str) -> Optional[MusicRequest]:
     return db.get(MusicRequest, request_id)
 
 
+def delete_request(db: DbSession, req: MusicRequest) -> None:
+    db.delete(req)
+    db.commit()
+
+
 def transition(
-    db: Session,
+    db: DbSession,
     req: MusicRequest,
-    new_status: RequestStatus,
+    new_status: str,
     *,
     progress: Optional[int] = None,
-    message: Optional[str] = None,
-    track_id: Optional[str] = None,
+    error_message: Optional[str] = None,
 ) -> MusicRequest:
-    """Move a request to a new status, validating the transition, and emit an event."""
+    """Validate and apply a status change. Raises ``RequestError`` if illegal."""
     if new_status != req.status and new_status not in VALID_TRANSITIONS.get(req.status, set()):
-        raise ValueError(f"Invalid transition {req.status} -> {new_status}")
+        raise RequestError(f"Invalid transition {req.status} -> {new_status}")
 
     req.status = new_status
     if progress is not None:
         req.progress = max(0, min(100, progress))
-    if message is not None:
-        req.message = message
-    if track_id is not None:
-        req.result_track_id = track_id
-    if new_status == RequestStatus.completed:
-        req.progress = 100
-        req.completed_at = _now()
-    req.updated_at = _now()
+    if new_status == "DOWNLOADING" and req.progress is None:
+        req.progress = 0
+    if new_status in TERMINAL_STATUSES:
+        req.progress = 100 if new_status == "AVAILABLE" else req.progress
+    req.error_message = error_message
+    req.updated_at = utcnow()
     db.commit()
     db.refresh(req)
-
-    event_manager.publish_threadsafe(
-        "request.updated",
-        {"request": req.to_public()},
-        user_id=req.user_id,
-    )
     return req
 
 
-def cancel_request(db: Session, req: MusicRequest) -> MusicRequest:
-    if req.status in {RequestStatus.completed, RequestStatus.cancelled}:
-        return req
-    return transition(db, req, RequestStatus.cancelled, message="Cancelled by user")
-
-
-def retry_request(db: Session, req: MusicRequest) -> MusicRequest:
-    if req.status not in {RequestStatus.failed, RequestStatus.cancelled}:
-        raise ValueError("Only failed or cancelled requests can be retried")
-    req.progress = 0
-    req.message = None
-    return transition(db, req, RequestStatus.pending, message="Re-queued")
+def retry(db: DbSession, req: MusicRequest) -> MusicRequest:
+    if req.status not in {"FAILED", "REJECTED"}:
+        raise RequestError("Only failed or rejected requests can be retried")
+    req.progress = None
+    req.error_message = None
+    return transition(db, req, "PENDING")

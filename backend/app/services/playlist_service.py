@@ -1,142 +1,163 @@
-"""Playlist, favorites, and listening-history services."""
+"""Playlists, favorites, and listening-history (pure DB logic)."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import List, Optional
 
 from sqlalchemy import delete, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session as DbSession
 
-from ..config import settings
-from ..models.favorite import Favorite
-from ..models.history import HistoryEntry
-from ..models.playlist import Playlist, PlaylistTrack
-from ..models.user import User
-
-
-def _now() -> datetime:
-    return datetime.now(timezone.utc)
+from app.config import settings
+from app.models.base import utcnow
+from app.models.favorite import Favorite
+from app.models.history import History
+from app.models.playlist import Playlist, PlaylistTrack
+from app.models.track import Track
+from app.models.user import User
 
 
-# ---------------- Playlists ----------------
+class PlaylistError(Exception):
+    """Domain error mapped to HTTP 400 by callers."""
 
-def list_playlists(db: Session, user: User) -> List[Playlist]:
-    stmt = select(Playlist).where(Playlist.user_id == user.id).order_by(Playlist.created_at.desc())
+
+# ----------------------------- Playlists -----------------------------
+
+def list_playlists(db: DbSession, user: User) -> List[Playlist]:
+    stmt = (
+        select(Playlist)
+        .where(Playlist.owner_user_id == user.id)
+        .order_by(Playlist.created_at.desc())
+    )
     return list(db.scalars(stmt).all())
 
 
-def get_playlist(db: Session, playlist_id: str) -> Optional[Playlist]:
+def get_playlist(db: DbSession, playlist_id: str) -> Optional[Playlist]:
     return db.get(Playlist, playlist_id)
 
 
-def create_playlist(db: Session, *, user: User, name: str, description: Optional[str]) -> Playlist:
-    pl = Playlist(user_id=user.id, name=name.strip(), description=(description or "").strip() or None)
+def create_playlist(db: DbSession, *, user: User, name: str, description: Optional[str]) -> Playlist:
+    clean = (name or "").strip()
+    if not clean:
+        raise PlaylistError("Playlist name is required")
+    pl = Playlist(
+        owner_user_id=user.id,
+        name=clean,
+        description=(description or "").strip() or None,
+    )
     db.add(pl)
     db.commit()
     db.refresh(pl)
     return pl
 
 
-def update_playlist(db: Session, pl: Playlist, *, name: Optional[str], description: Optional[str]) -> Playlist:
+def update_playlist(
+    db: DbSession, pl: Playlist, *, name: Optional[str], description: Optional[str]
+) -> Playlist:
     if name is not None:
-        pl.name = name.strip()
+        clean = name.strip()
+        if not clean:
+            raise PlaylistError("Playlist name cannot be empty")
+        pl.name = clean
     if description is not None:
         pl.description = description.strip() or None
-    pl.updated_at = _now()
+    pl.updated_at = utcnow()
     db.commit()
     db.refresh(pl)
     return pl
 
 
-def delete_playlist(db: Session, pl: Playlist) -> None:
+def delete_playlist(db: DbSession, pl: Playlist) -> None:
     db.delete(pl)
     db.commit()
 
 
-def _next_position(db: Session, playlist_id: str) -> int:
+def _next_position(db: DbSession, playlist_id: str) -> int:
     current = db.scalar(
         select(func.max(PlaylistTrack.position)).where(PlaylistTrack.playlist_id == playlist_id)
     )
     return (current or 0) + 1
 
 
-def add_track(db: Session, pl: Playlist, track_id: str) -> Playlist:
+def add_track(db: DbSession, pl: Playlist, track: Track) -> Playlist:
     exists = db.scalar(
         select(PlaylistTrack).where(
-            PlaylistTrack.playlist_id == pl.id, PlaylistTrack.track_id == track_id
+            PlaylistTrack.playlist_id == pl.id, PlaylistTrack.track_id == track.id
         )
     )
-    if not exists:
+    if exists is None:
         db.add(
             PlaylistTrack(
                 playlist_id=pl.id,
-                track_id=track_id,
+                track_id=track.id,
                 position=_next_position(db, pl.id),
             )
         )
-        pl.updated_at = _now()
+        pl.updated_at = utcnow()
         db.commit()
         db.refresh(pl)
     return pl
 
 
-def remove_track(db: Session, pl: Playlist, track_id: str) -> Playlist:
+def remove_track(db: DbSession, pl: Playlist, track_id: str) -> Playlist:
     db.execute(
         delete(PlaylistTrack).where(
             PlaylistTrack.playlist_id == pl.id, PlaylistTrack.track_id == track_id
         )
     )
-    pl.updated_at = _now()
+    pl.updated_at = utcnow()
     db.commit()
     db.refresh(pl)
     return pl
 
 
-def reorder_tracks(db: Session, pl: Playlist, ordered_track_ids: List[str]) -> Playlist:
-    rows = {pt.track_id: pt for pt in pl.tracks}
-    for index, track_id in enumerate(ordered_track_ids, start=1):
+def reorder(db: DbSession, pl: Playlist, ordered_track_ids: List[str]) -> Playlist:
+    rows = {item.track_id: item for item in pl.items}
+    for index, track_id in enumerate(ordered_track_ids):
         if track_id in rows:
             rows[track_id].position = index
-    pl.updated_at = _now()
+    pl.updated_at = utcnow()
     db.commit()
     db.refresh(pl)
     return pl
 
 
-# ---------------- Favorites ----------------
+# ----------------------------- Favorites -----------------------------
 
-def list_favorite_ids(db: Session, user: User) -> List[str]:
+def list_favorite_tracks(db: DbSession, user: User) -> List[Track]:
     stmt = (
-        select(Favorite.track_id)
+        select(Track)
+        .join(Favorite, Favorite.track_id == Track.id)
         .where(Favorite.user_id == user.id)
         .order_by(Favorite.created_at.desc())
     )
     return list(db.scalars(stmt).all())
 
 
-def is_favorite(db: Session, user: User, track_id: str) -> bool:
-    return db.scalar(
-        select(Favorite).where(Favorite.user_id == user.id, Favorite.track_id == track_id)
-    ) is not None
+def is_favorite(db: DbSession, user: User, track_id: str) -> bool:
+    return (
+        db.scalar(
+            select(Favorite).where(Favorite.user_id == user.id, Favorite.track_id == track_id)
+        )
+        is not None
+    )
 
 
-def add_favorite(db: Session, user: User, track_id: str) -> None:
+def add_favorite(db: DbSession, user: User, track_id: str) -> None:
     if not is_favorite(db, user, track_id):
         db.add(Favorite(user_id=user.id, track_id=track_id))
         db.commit()
 
 
-def remove_favorite(db: Session, user: User, track_id: str) -> None:
+def remove_favorite(db: DbSession, user: User, track_id: str) -> None:
     db.execute(
         delete(Favorite).where(Favorite.user_id == user.id, Favorite.track_id == track_id)
     )
     db.commit()
 
 
-# ---------------- History ----------------
+# ------------------------------ History ------------------------------
 
-def record_play(db: Session, user: User, track_id: str) -> HistoryEntry:
-    entry = HistoryEntry(user_id=user.id, track_id=track_id, played_at=_now())
+def record_play(db: DbSession, user: User, track_id: str) -> History:
+    entry = History(user_id=user.id, track_id=track_id, played_at=utcnow())
     db.add(entry)
     db.commit()
     db.refresh(entry)
@@ -144,30 +165,25 @@ def record_play(db: Session, user: User, track_id: str) -> HistoryEntry:
     return entry
 
 
-def _trim_history(db: Session, user: User) -> None:
-    ids = list(
+def _trim_history(db: DbSession, user: User) -> None:
+    stale_ids = list(
         db.scalars(
-            select(HistoryEntry.id)
-            .where(HistoryEntry.user_id == user.id)
-            .order_by(HistoryEntry.played_at.desc())
+            select(History.id)
+            .where(History.user_id == user.id)
+            .order_by(History.played_at.desc())
             .offset(settings.history_max_entries)
         ).all()
     )
-    if ids:
-        db.execute(delete(HistoryEntry).where(HistoryEntry.id.in_(ids)))
+    if stale_ids:
+        db.execute(delete(History).where(History.id.in_(stale_ids)))
         db.commit()
 
 
-def list_history(db: Session, user: User, limit: int = 100) -> List[HistoryEntry]:
+def list_history(db: DbSession, user: User, limit: int = 100) -> List[History]:
     stmt = (
-        select(HistoryEntry)
-        .where(HistoryEntry.user_id == user.id)
-        .order_by(HistoryEntry.played_at.desc())
+        select(History)
+        .where(History.user_id == user.id)
+        .order_by(History.played_at.desc())
         .limit(limit)
     )
     return list(db.scalars(stmt).all())
-
-
-def clear_history(db: Session, user: User) -> None:
-    db.execute(delete(HistoryEntry).where(HistoryEntry.user_id == user.id))
-    db.commit()
