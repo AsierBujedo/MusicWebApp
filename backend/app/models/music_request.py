@@ -1,0 +1,39 @@
+from __future__ import annotations
+
+from datetime import datetime
+
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.database import Base
+from app.models.base import new_id, utcnow
+
+
+class MusicRequest(Base):
+    __tablename__ = "music_requests"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    requested_by: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    # "track" | "album" | "artist"
+    type: Mapped[str] = mapped_column(String(16), nullable=False, default="track")
+    track_id: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+
+    # Denormalized display fields so a request survives even if the source track
+    # metadata changes or disappears.
+    title: Mapped[str] = mapped_column(String(512), nullable=False)
+    artist: Mapped[str] = mapped_column(String(512), nullable=False)
+    cover: Mapped[str | None] = mapped_column(String(512), nullable=True)
+
+    # PENDING | APPROVED | SEARCHING | DOWNLOADING | AVAILABLE | FAILED | REJECTED
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="PENDING", index=True)
+    progress: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
+    )
+
+    user = relationship("User")
