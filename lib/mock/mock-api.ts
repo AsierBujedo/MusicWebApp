@@ -48,6 +48,9 @@ class MockApi implements MusicApi {
   private services: ServiceHealth[] = MOCK_SERVICES.map((s) => ({ ...s }))
   private listeners = new Set<(e: RealtimeEvent) => void>()
   private currentUserId: string | null = null
+  // Per-user passwords. Any password logs in initially; once changed here,
+  // the new password is enforced so "current password" checks feel real.
+  private passwords = new Map<string, string>()
 
   constructor() {
     if (typeof window !== "undefined") {
@@ -76,9 +79,27 @@ class MockApi implements MusicApi {
     if (!user || !password) {
       throw new ApiError("Usuario o contraseña incorrectos.", 401)
     }
+    // If this user changed their password, enforce it; otherwise any password works.
+    const stored = this.passwords.get(user.id)
+    if (stored && stored !== password) {
+      throw new ApiError("Usuario o contraseña incorrectos.", 401)
+    }
     this.currentUserId = user.id
     if (typeof window !== "undefined") window.localStorage.setItem(SESSION_KEY, user.id)
     return { ...user }
+  }
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    await delay(500)
+    const user = this.me()
+    const stored = this.passwords.get(user.id)
+    if (stored && stored !== currentPassword) {
+      throw new ApiError("La contraseña actual no es correcta.", 400)
+    }
+    if (newPassword.length < 6) {
+      throw new ApiError("La nueva contraseña debe tener al menos 6 caracteres.", 400)
+    }
+    this.passwords.set(user.id, newPassword)
   }
 
   async logout(): Promise<void> {

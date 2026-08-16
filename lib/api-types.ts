@@ -38,6 +38,7 @@ export interface MusicApi {
   login(username: string, password: string): Promise<User>
   logout(): Promise<void>
   getCurrentUser(): Promise<User>
+  changePassword(currentPassword: string, newPassword: string): Promise<void>
 
   // search + tracks
   search(query: string): Promise<SearchResults>

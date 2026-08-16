@@ -49,6 +49,12 @@ class RealApi implements MusicApi {
   getCurrentUser() {
     return request<User>("/api/auth/me")
   }
+  changePassword(currentPassword: string, newPassword: string) {
+    return request<void>("/api/auth/password", {
+      method: "POST",
+      body: JSON.stringify({ currentPassword, newPassword }),
+    })
+  }
 
   search(query: string) {
     return request<SearchResults>(`/api/search?q=${encodeURIComponent(query)}`)

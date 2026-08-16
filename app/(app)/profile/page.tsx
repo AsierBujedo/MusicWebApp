@@ -1,7 +1,8 @@
 "use client"
 
+import * as React from "react"
 import useSWR from "swr"
-import { LogOut, Heart, ListMusic, Inbox, Shield, Moon, Sun, ChevronRight } from "lucide-react"
+import { LogOut, Heart, ListMusic, Inbox, Shield, Moon, Sun, ChevronRight, KeyRound } from "lucide-react"
 import Link from "next/link"
 import type { HistoryEntry, Playlist, Track, MusicRequest } from "@/types/api"
 import { api } from "@/lib/api"
@@ -10,10 +11,12 @@ import { useTheme } from "@/components/providers/theme-provider"
 import { PageHeader } from "@/components/page-header"
 import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import { ChangePasswordModal } from "@/components/change-password-modal"
 
 export default function ProfilePage() {
   const { user, isAdmin, logout } = useAuth()
   const { theme, toggle } = useTheme()
+  const [passwordOpen, setPasswordOpen] = React.useState(false)
 
   const { data: favorites } = useSWR<Track[]>(user ? "favorites" : null, () => api.getFavorites())
   const { data: playlists } = useSWR<Playlist[]>(user ? "playlists" : null, () => api.getPlaylists())
@@ -101,9 +104,28 @@ export default function ProfilePage() {
         </div>
       </div>
 
+      <div className="mt-6 space-y-2">
+        <h3 className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Seguridad</h3>
+        <div className="overflow-hidden rounded-2xl border border-border bg-card">
+          <button
+            onClick={() => setPasswordOpen(true)}
+            className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-secondary"
+          >
+            <KeyRound className="h-5 w-5 text-muted-foreground" />
+            <div className="flex-1">
+              <p className="text-sm font-medium">Cambiar contraseña</p>
+              <p className="text-xs text-muted-foreground">Actualiza la contraseña de tu cuenta</p>
+            </div>
+            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+          </button>
+        </div>
+      </div>
+
       <p className="mt-6 text-center text-xs text-muted-foreground">
         {history?.length ?? 0} reproducciones registradas · Resonar
       </p>
+
+      <ChangePasswordModal open={passwordOpen} onClose={() => setPasswordOpen(false)} />
     </div>
   )
 }
