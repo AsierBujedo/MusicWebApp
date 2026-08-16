@@ -13,8 +13,10 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Set
 
 
-@dataclass
+@dataclass(eq=False)
 class Subscriber:
+    # ``eq=False`` keeps default object identity for __eq__/__hash__ so each
+    # connection is a distinct, hashable member of the subscriber set.
     user_id: str
     is_admin: bool
     queue: "asyncio.Queue[dict]" = field(default_factory=lambda: asyncio.Queue(maxsize=100))
