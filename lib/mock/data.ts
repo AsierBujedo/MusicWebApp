@@ -17,9 +17,9 @@ export function cover(seed: string): string {
 export const MOCK_USERS: User[] = [
   {
     id: "u1",
-    username: "asier",
+    username: "admin",
     displayName: "Asier",
-    email: "asier@home.local",
+    email: "admin@home.local",
     role: "ADMIN",
     active: true,
     avatar: cover("asier-avatar"),
@@ -27,9 +27,9 @@ export const MOCK_USERS: User[] = [
   },
   {
     id: "u2",
-    username: "marta",
+    username: "demo",
     displayName: "Marta",
-    email: "marta@home.local",
+    email: "demo@home.local",
     role: "USER",
     active: true,
     avatar: cover("marta-avatar"),

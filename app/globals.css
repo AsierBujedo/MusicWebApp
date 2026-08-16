@@ -81,6 +81,10 @@
   --color-status-downloading: var(--status-downloading);
   --color-status-failed: var(--status-failed);
 
+  --color-success: var(--status-available);
+  --color-warning: var(--status-pending);
+  --color-danger: var(--status-failed);
+
   --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
