@@ -1,4 +1,4 @@
-FROM python:3.12-slim AS base
+FROM python:3.14-slim AS base
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -22,6 +22,10 @@ USER appuser
 
 EXPOSE 8000
 
-# Run migrations, then start the server. Falls back to metadata bootstrap
-# (create_all) at startup if migrations are skipped.
+# Container healthcheck hits the lightweight /health endpoint (not /docs).
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)"
+
+# Run migrations, then start the server. Migrations are idempotent; startup also
+# falls back to metadata bootstrap (create_all) if migrations are skipped.
 CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]

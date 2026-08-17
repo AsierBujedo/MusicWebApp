@@ -19,6 +19,10 @@ class MusicRequest(Base):
     # "track" | "album" | "artist"
     type: Mapped[str] = mapped_column(String(16), nullable=False, default="track")
     track_id: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    # MusicBrainz id submitted to DroppedNeedle, and the id it returns for the
+    # acquisition, so the worker can reconcile external state back to this row.
+    musicbrainz_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    external_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
 
     # Denormalized display fields so a request survives even if the source track
     # metadata changes or disappears.

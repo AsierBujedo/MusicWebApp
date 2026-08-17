@@ -9,21 +9,31 @@ services:
       DATABASE_URL: postgresql+psycopg://hma:hma@db:5432/hma
       SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-hma_session}
-      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
-      # Set to "false" and provide the *_URL vars below to use real services.
-      MOCK_EXTERNAL_SERVICES: ${MOCK_EXTERNAL_SERVICES:-true}
-      NAVIDROME_URL: ${NAVIDROME_URL:-}
+      SESSION_TTL_SECONDS: ${SESSION_TTL_SECONDS:-2592000}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-}
+      # Set to "false" and provide the vars below to use the real services.
+      MOCK_EXTERNAL_SERVICES: ${MOCK_EXTERNAL_SERVICES:-false}
+      # Resolved via Docker DNS on the shared "media_default" network.
+      NAVIDROME_URL: ${NAVIDROME_URL:-http://navidrome:4533}
       NAVIDROME_USERNAME: ${NAVIDROME_USERNAME:-}
       NAVIDROME_PASSWORD: ${NAVIDROME_PASSWORD:-}
-      DROPPEDNEEDLE_URL: ${DROPPEDNEEDLE_URL:-}
-      DROPPEDNEEDLE_API_KEY: ${DROPPEDNEEDLE_API_KEY:-}
-      SLSKD_URL: ${SLSKD_URL:-}
+      DROPPEDNEEDLE_URL: ${DROPPEDNEEDLE_URL:-http://droppedneedle:8000}
+      DROPPEDNEEDLE_USERNAME: ${DROPPEDNEEDLE_USERNAME:-}
+      DROPPEDNEEDLE_PASSWORD: ${DROPPEDNEEDLE_PASSWORD:-}
+      SLSKD_URL: ${SLSKD_URL:-http://slskd:5030}
       SLSKD_API_KEY: ${SLSKD_API_KEY:-}
+      REQUEST_POLL_INTERVAL_SECONDS: ${REQUEST_POLL_INTERVAL_SECONDS:-10}
       BOOTSTRAP_ADMIN_USERNAME: ${BOOTSTRAP_ADMIN_USERNAME:-admin}
       BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-admin}
+      BOOTSTRAP_ADMIN_DISPLAY_NAME: ${BOOTSTRAP_ADMIN_DISPLAY_NAME:-Admin}
     depends_on:
       db:
         condition: service_healthy
+    networks:
+      # Internal network for the api<->db link, plus the external media network
+      # so the backend can reach droppedneedle / navidrome / slskd by name.
+      - default
+      - media_default
     restart: unless-stopped
 
   db:
@@ -39,7 +49,17 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - default
     restart: unless-stopped
+
+networks:
+  # Backend's private network (api <-> db).
+  default:
+  # Pre-existing external network created by the media stack. The backend joins
+  # it to resolve the droppedneedle / navidrome / slskd containers by DNS.
+  media_default:
+    external: true
 
 volumes:
   db-data:

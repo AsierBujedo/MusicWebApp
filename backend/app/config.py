@@ -47,8 +47,11 @@ class Settings(BaseSettings):
     # ---- Integrations ----
     mock_external_services: bool = Field(default=True, alias="MOCK_EXTERNAL_SERVICES")
 
+    # DroppedNeedle authenticates via POST /api/v1/auth/login (username/password)
+    # and returns a bearer token used for subsequent calls. No static API key.
     droppedneedle_url: str = Field(default="", alias="DROPPEDNEEDLE_URL")
-    droppedneedle_api_key: str = Field(default="", alias="DROPPEDNEEDLE_API_KEY")
+    droppedneedle_username: str = Field(default="", alias="DROPPEDNEEDLE_USERNAME")
+    droppedneedle_password: str = Field(default="", alias="DROPPEDNEEDLE_PASSWORD")
 
     navidrome_url: str = Field(default="", alias="NAVIDROME_URL")
     navidrome_username: str = Field(default="", alias="NAVIDROME_USERNAME")

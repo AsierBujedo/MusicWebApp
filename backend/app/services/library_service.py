@@ -18,7 +18,12 @@ ACTIVE_REQUEST_STATUSES = {"PENDING", "DOWNLOADING"}
 
 
 def _status_for(external: ExternalTrack) -> str:
-    return "AVAILABLE" if external.available else "REQUESTABLE"
+    if external.available:
+        return "AVAILABLE"
+    # An acquisition already requested upstream shows as PENDING to the user.
+    if external.requested:
+        return "PENDING"
+    return "REQUESTABLE"
 
 
 def upsert_external_track(db: DbSession, external: ExternalTrack) -> Track:
@@ -33,6 +38,7 @@ def upsert_external_track(db: DbSession, external: ExternalTrack) -> Track:
         track = Track(
             provider=external.provider,
             provider_id=external.provider_id,
+            musicbrainz_id=external.musicbrainz_id,
             title=external.title,
             artist=external.artist,
             artist_id=external.artist_id,
@@ -52,6 +58,7 @@ def upsert_external_track(db: DbSession, external: ExternalTrack) -> Track:
     # Refresh metadata.
     track.title = external.title
     track.artist = external.artist
+    track.musicbrainz_id = external.musicbrainz_id or track.musicbrainz_id
     track.artist_id = external.artist_id
     track.album = external.album
     track.album_id = external.album_id

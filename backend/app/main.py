@@ -111,3 +111,10 @@ for module in (auth, search, tracks, stream, requests, favorites, playlists, his
 @app.get("/", include_in_schema=False)
 def root():
     return {"service": settings.app_name, "status": "ok"}
+
+
+@app.get("/health", include_in_schema=False)
+def health_probe():
+    """Lightweight container healthcheck target (Docker HEALTHCHECK). Kept
+    dependency-free so it stays green even while integrations warm up."""
+    return {"status": "ok"}

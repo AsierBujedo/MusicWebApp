@@ -10,6 +10,7 @@ from app.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.request import CreateRequestInput
 from app.services import event_service, library_service, request_service
+from app.services.integrations import get_droppedneedle_client
 from app.services.serializers import request_out
 
 router = APIRouter(prefix="/api/requests", tags=["requests"])
@@ -34,6 +35,24 @@ async def create_request(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Track already available")
 
     req = request_service.create_request(db, user=user, type_=payload.type, track=track)
+
+    # Submit the acquisition to DroppedNeedle (keyed by MusicBrainz id). The
+    # returned external id lets the worker reconcile progress later. Failure to
+    # submit does not lose the request; the worker retries via the PENDING state.
+    if req.musicbrainz_id is None and track.musicbrainz_id:
+        req.musicbrainz_id = track.musicbrainz_id
+    dn = get_droppedneedle_client()
+    try:
+        result = await dn.request(
+            type=req.type, title=req.title, artist=req.artist, musicbrainz_id=track.musicbrainz_id
+        )
+        if result.get("accepted") and result.get("external_id"):
+            req.external_id = str(result["external_id"])
+        db.commit()
+        db.refresh(req)
+    finally:
+        await dn.aclose()
+
     # Reflect the pending state on any open search views.
     await event_service.emit_track_updated(
         track_id=track.id, status=track.status, progress=None, audience_user_ids=None

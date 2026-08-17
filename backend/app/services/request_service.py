@@ -62,6 +62,7 @@ def create_request(db: DbSession, *, user: User, type_: str, track: Track) -> Mu
         requested_by=user.id,
         type=type_,
         track_id=track.id,
+        musicbrainz_id=track.musicbrainz_id,
         title=track.title,
         artist=track.artist,
         cover=track.cover,
@@ -129,3 +130,43 @@ def retry(db: DbSession, req: MusicRequest) -> MusicRequest:
     req.progress = None
     req.error_message = None
     return transition(db, req, "PENDING")
+
+
+# Ordering of the acquisition pipeline, used to reconcile external state that
+# may skip intermediate steps (e.g. DroppedNeedle reports AVAILABLE while we are
+# still APPROVED).
+_PIPELINE_ORDER = ["APPROVED", "SEARCHING", "DOWNLOADING", "AVAILABLE"]
+
+
+def sync_to_status(
+    db: DbSession,
+    req: MusicRequest,
+    target: str,
+    *,
+    progress: Optional[int] = None,
+    error_message: Optional[str] = None,
+) -> MusicRequest:
+    """Force ``req`` toward ``target`` from external truth, walking the pipeline
+    through any skipped intermediate states so the DB never records an illegal
+    jump. Terminal FAILED is applied directly."""
+    if target == "FAILED":
+        return transition(db, req, "FAILED", error_message=error_message)
+
+    if target not in _PIPELINE_ORDER:
+        # Unknown/absent -> keep progressing from APPROVED to SEARCHING.
+        if req.status == "APPROVED":
+            return transition(db, req, "SEARCHING")
+        return req
+
+    target_idx = _PIPELINE_ORDER.index(target)
+    # Advance one legal hop at a time until we reach the target state.
+    while req.status in _PIPELINE_ORDER and _PIPELINE_ORDER.index(req.status) < target_idx:
+        nxt = _PIPELINE_ORDER[_PIPELINE_ORDER.index(req.status) + 1]
+        step_progress = 100 if nxt == "AVAILABLE" else (progress if nxt == target else None)
+        transition(db, req, nxt, progress=step_progress)
+    if req.status == target and progress is not None:
+        req.progress = max(0, min(100, progress))
+        req.updated_at = utcnow()
+        db.commit()
+        db.refresh(req)
+    return req

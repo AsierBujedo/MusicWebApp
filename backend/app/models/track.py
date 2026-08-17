@@ -23,6 +23,8 @@ class Track(Base):
     # Origin of the metadata: "navidrome", "droppedneedle", "local", "external"...
     provider: Mapped[str] = mapped_column(String(32), nullable=False, default="local", index=True)
     provider_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # MusicBrainz id used to place acquisition requests with DroppedNeedle.
+    musicbrainz_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
 
     title: Mapped[str] = mapped_column(String(512), nullable=False)
     artist: Mapped[str] = mapped_column(String(512), nullable=False)

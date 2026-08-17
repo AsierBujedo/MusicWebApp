@@ -20,6 +20,12 @@ from app.services.serializers import track_out
 
 
 def _album_out(a: ExternalAlbum) -> Dict[str, Any]:
+    if a.available:
+        status = "AVAILABLE"
+    elif a.requested:
+        status = "PENDING"
+    else:
+        status = "REQUESTABLE"
     return {
         "id": a.provider_id,
         "title": a.title,
@@ -28,7 +34,7 @@ def _album_out(a: ExternalAlbum) -> Dict[str, Any]:
         "cover": a.cover,
         "year": a.year,
         "trackCount": a.track_count,
-        "status": "AVAILABLE" if a.available else "REQUESTABLE",
+        "status": status,
     }
 
 
@@ -52,24 +58,40 @@ async def search(db: DbSession, query: str) -> Dict[str, Any]:
     droppedneedle = get_droppedneedle_client()
 
     nav = await navidrome.search(q, limit)
-    dn_tracks: List[ExternalTrack] = await droppedneedle.search(q, limit)
+    dn = await droppedneedle.search(q, limit)
 
     # Merge tracks: owned library first, then acquirable ones not already owned.
-    seen = {(t.provider, t.provider_id) for t in nav.tracks}
+    seen_tracks = {(t.provider, t.provider_id) for t in nav.tracks}
     merged: List[ExternalTrack] = list(nav.tracks)
-    for t in dn_tracks:
+    for t in dn.tracks:
         key = (t.provider, t.provider_id)
-        if key not in seen:
+        if key not in seen_tracks:
             merged.append(t)
-            seen.add(key)
+            seen_tracks.add(key)
 
     tracks_out: List[Dict[str, Any]] = []
     for ext in merged:
         track = library_service.upsert_external_track(db, ext)
         tracks_out.append(track_out(track))
 
+    # Merge albums/artists from both providers (Navidrome = owned library,
+    # DroppedNeedle = acquirable catalog), deduping by (provider, id).
+    albums = _dedupe(nav.albums + dn.albums, key=lambda a: (a.provider, a.provider_id))
+    artists = _dedupe(nav.artists + dn.artists, key=lambda a: (a.provider, a.provider_id))
+
     return {
         "tracks": tracks_out,
-        "albums": [_album_out(a) for a in nav.albums],
-        "artists": [_artist_out(a) for a in nav.artists],
+        "albums": [_album_out(a) for a in albums],
+        "artists": [_artist_out(a) for a in artists],
     }
+
+
+def _dedupe(items, key):
+    seen = set()
+    out = []
+    for it in items:
+        k = key(it)
+        if k not in seen:
+            seen.add(k)
+            out.append(it)
+    return out

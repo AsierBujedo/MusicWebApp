@@ -25,6 +25,10 @@ class ExternalTrack:
     cover: Optional[str] = None
     # True when the track is present and playable in the library right now.
     available: bool = False
+    # MusicBrainz identifier used to place acquisition requests with DroppedNeedle.
+    musicbrainz_id: Optional[str] = None
+    # True when an acquisition has already been requested for this item.
+    requested: bool = False
 
 
 @dataclass
@@ -38,6 +42,8 @@ class ExternalAlbum:
     year: Optional[int] = None
     track_count: Optional[int] = None
     available: bool = False
+    musicbrainz_id: Optional[str] = None
+    requested: bool = False
 
 
 @dataclass
@@ -47,6 +53,7 @@ class ExternalArtist:
     name: str
     image: Optional[str] = None
     album_count: Optional[int] = None
+    musicbrainz_id: Optional[str] = None
 
 
 @dataclass
@@ -82,9 +89,13 @@ class NavidromeClient(Protocol):
 
 class DroppedNeedleClient(Protocol):
     async def health(self) -> HealthResult: ...
-    async def search(self, query: str, limit: int) -> List[ExternalTrack]: ...
-    async def request(self, *, type: str, title: str, artist: str, provider_id: Optional[str]) -> dict: ...
-    async def get_status(self, external_id: str) -> dict: ...
+    async def search(self, query: str, limit: int) -> ExternalSearch: ...
+    async def request(
+        self, *, type: str, title: str, artist: str, musicbrainz_id: Optional[str]
+    ) -> dict: ...
+    # Sync in-flight acquisition state (active requests + downloads). Returns a
+    # mapping keyed by musicbrainz_id -> {status, progress, error} for the worker.
+    async def sync_status(self) -> dict: ...
     async def aclose(self) -> None: ...
 
 

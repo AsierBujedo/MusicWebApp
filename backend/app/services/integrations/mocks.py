@@ -29,17 +29,17 @@ def _cover(seed: str) -> str:
 _CATALOG: List[ExternalTrack] = [
     ExternalTrack("navidrome", "nd-1", "One More Time", "Daft Punk", "Discovery", "al1", "ar1", 2001, 320, _cover("Daft Punk-Discovery"), True),
     ExternalTrack("navidrome", "nd-2", "Harder, Better, Faster, Stronger", "Daft Punk", "Discovery", "al1", "ar1", 2001, 224, _cover("Daft Punk-Discovery"), True),
-    ExternalTrack("droppedneedle", "dn-3", "Around the World", "Daft Punk", "Homework", "al2", "ar1", 1997, 429, _cover("Daft Punk-Homework"), False),
+    ExternalTrack("droppedneedle", "dn-3", "Around the World", "Daft Punk", "Homework", "al2", "ar1", 1997, 429, _cover("Daft Punk-Homework"), False, musicbrainz_id="mbid-dn-3"),
     ExternalTrack("navidrome", "nd-5", "Instant Crush", "Daft Punk", "Random Access Memories", "al3", "ar1", 2013, 337, _cover("Daft Punk-Random Access Memories"), True),
     ExternalTrack("navidrome", "nd-6", "Houdini", "Dua Lipa", "Radical Optimism", "al4", "ar2", 2024, 186, _cover("Dua Lipa-Radical Optimism"), True),
     ExternalTrack("navidrome", "nd-7", "Levitating", "Dua Lipa", "Future Nostalgia", "al5", "ar2", 2020, 203, _cover("Dua Lipa-Future Nostalgia"), True),
-    ExternalTrack("droppedneedle", "dn-8", "Don't Start Now", "Dua Lipa", "Future Nostalgia", "al5", "ar2", 2020, 183, _cover("Dua Lipa-Future Nostalgia"), False),
+    ExternalTrack("droppedneedle", "dn-8", "Don't Start Now", "Dua Lipa", "Future Nostalgia", "al5", "ar2", 2020, 183, _cover("Dua Lipa-Future Nostalgia"), False, musicbrainz_id="mbid-dn-8"),
     ExternalTrack("navidrome", "nd-9", "Redbone", "Childish Gambino", "Awaken, My Love!", "al6", "ar3", 2016, 327, _cover("Childish Gambino-Awaken"), True),
-    ExternalTrack("droppedneedle", "dn-10", "This Is America", "Childish Gambino", "Singles", "al7", "ar3", 2018, 225, _cover("Childish Gambino-Singles"), False),
+    ExternalTrack("droppedneedle", "dn-10", "This Is America", "Childish Gambino", "Singles", "al7", "ar3", 2018, 225, _cover("Childish Gambino-Singles"), False, musicbrainz_id="mbid-dn-10"),
     ExternalTrack("navidrome", "nd-11", "Midnight City", "M83", "Hurry Up, We're Dreaming", "al8", "ar4", 2011, 244, _cover("M83-Hurry Up"), True),
     ExternalTrack("navidrome", "nd-13", "Blinding Lights", "The Weeknd", "After Hours", "al9", "ar5", 2020, 200, _cover("The Weeknd-After Hours"), True),
     ExternalTrack("navidrome", "nd-16", "Nightcall", "Kavinsky", "OutRun", "al11", "ar6", 2013, 258, _cover("Kavinsky-OutRun"), True),
-    ExternalTrack("droppedneedle", "dn-17", "Feel It Still", "Portugal. The Man", "Woodstock", "al12", "ar7", 2017, 163, _cover("Portugal-Woodstock"), False),
+    ExternalTrack("droppedneedle", "dn-17", "Feel It Still", "Portugal. The Man", "Woodstock", "al12", "ar7", 2017, 163, _cover("Portugal-Woodstock"), False, musicbrainz_id="mbid-dn-17"),
     ExternalTrack("navidrome", "nd-18", "Electric Feel", "MGMT", "Oracular Spectacular", "al13", "ar8", 2007, 229, _cover("MGMT-Oracular"), True),
     ExternalTrack("navidrome", "nd-20", "Solar Drift", "Nova Hale", "Aurora Rooms", "al14", "ar9", 2023, 251, _cover("Nova Hale-Aurora Rooms"), True),
 ]
@@ -118,15 +118,22 @@ class MockDroppedNeedleClient:
     async def health(self) -> HealthResult:
         return "online", "Cola vacía (mock)"
 
-    async def search(self, query: str, limit: int) -> List[ExternalTrack]:
-        return [t for t in _CATALOG if _match(query, t.title, t.artist, t.album)][:limit]
+    async def search(self, query: str, limit: int) -> ExternalSearch:
+        # Surface the acquirable (not-yet-in-library) catalog entries as tracks,
+        # plus any matching albums/artists, mirroring the real DN shape.
+        tracks = [t for t in _CATALOG if _match(query, t.title, t.artist, t.album)][:limit]
+        albums = [a for a in _ALBUMS if _match(query, a.title, a.artist)][:limit]
+        artists = [a for a in _ARTISTS if _match(query, a.name)][:limit]
+        return ExternalSearch(tracks=tracks, albums=albums, artists=artists)
 
-    async def request(self, *, type: str, title: str, artist: str, provider_id: Optional[str]) -> dict:
-        return {"accepted": True, "external_id": f"dn-req-{provider_id or title}"}
+    async def request(
+        self, *, type: str, title: str, artist: str, musicbrainz_id: Optional[str]
+    ) -> dict:
+        return {"accepted": True, "external_id": f"dn-req-{musicbrainz_id or title}"}
 
-    async def get_status(self, external_id: str) -> dict:
+    async def sync_status(self) -> dict:
         # The worker drives the simulated lifecycle; nothing external to report.
-        return {"external_id": external_id, "state": "unknown"}
+        return {}
 
     async def aclose(self) -> None:
         return None
