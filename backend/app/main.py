@@ -107,6 +107,10 @@ if settings.cors_origins:
 for module in (auth, search, tracks, stream, requests, favorites, playlists, history, events, admin, health):
     app.include_router(module.router)
 
+# Keep the documented container probe stable while the frontend continues to
+# use the namespaced public API route (/api/health).
+app.add_api_route("/health", health.health, methods=["GET"], include_in_schema=False)
+
 
 @app.get("/", include_in_schema=False)
 def root():

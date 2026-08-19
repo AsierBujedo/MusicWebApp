@@ -99,6 +99,7 @@ See `.env.example` for the full list. Highlights:
 | `SESSION_COOKIE_NAME`     | `hma_session`  | Session cookie name                                |
 | `FRONTEND_ORIGIN`         | —              | Allowed CORS origin(s), comma-separated            |
 | `MOCK_EXTERNAL_SERVICES`  | `true`         | Use in-memory mock providers instead of real ones  |
+| `DROPPEDNEEDLE_URL` / credentials | — | DroppedNeedle API v1 endpoint plus its service username/password |
 | `NAVIDROME_URL` / creds   | —              | Navidrome (Subsonic API) library provider          |
 | `DROPPEDNEEDLE_URL` / key | —              | DroppedNeedle requestable-catalog provider         |
 | `SLSKD_URL` / key         | —              | slskd (Soulseek) download provider                 |
@@ -152,7 +153,7 @@ the "cannot remove the last admin" guard.
 ## Docker
 
 ```bash
-# API + Postgres
+# API (SQLite persisted in ./data)
 docker compose up --build
 
 # API only (SQLite), mocks on
@@ -163,6 +164,8 @@ docker run -p 8000:8000 -e SECRET_KEY=change-me hma-backend
 ## Going live with real providers
 
 Set `MOCK_EXTERNAL_SERVICES=false` and provide the relevant `*_URL` and
-credential variables. Each provider is isolated in
+credential variables. DroppedNeedle uses `DROPPEDNEEDLE_USERNAME` and
+`DROPPEDNEEDLE_PASSWORD`; its server-side bearer token is never exposed to the
+browser. Each provider is isolated in
 `app/services/integrations/`; the aggregation, request lifecycle, and API
 contract are unchanged whether providers are mocked or real.

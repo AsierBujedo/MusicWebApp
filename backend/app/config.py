@@ -48,7 +48,10 @@ class Settings(BaseSettings):
     mock_external_services: bool = Field(default=True, alias="MOCK_EXTERNAL_SERVICES")
 
     droppedneedle_url: str = Field(default="", alias="DROPPEDNEEDLE_URL")
-    droppedneedle_api_key: str = Field(default="", alias="DROPPEDNEEDLE_API_KEY")
+    # DroppedNeedle authenticates with its own account and returns a bearer
+    # token. This is deliberately separate from SLSKD_API_KEY.
+    droppedneedle_username: str = Field(default="", alias="DROPPEDNEEDLE_USERNAME")
+    droppedneedle_password: str = Field(default="", alias="DROPPEDNEEDLE_PASSWORD")
 
     navidrome_url: str = Field(default="", alias="NAVIDROME_URL")
     navidrome_username: str = Field(default="", alias="NAVIDROME_USERNAME")

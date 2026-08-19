@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import time
 
+from app.services.worker import _normalise_remote_status
+
 
 def _requestable_track(admin_client):
     tracks = admin_client.get("/api/search", params={"q": "This Is America"}).json()["tracks"]
@@ -95,6 +97,17 @@ def test_non_admin_forbidden(client):
         json={"username": "bob", "password": "password1", "displayName": "Bob", "role": "USER"},
     )
     client.post("/api/auth/logout")
+
+
+def test_droppedneedle_status_normalisation():
+    assert _normalise_remote_status({"status": "searching"}) == ("SEARCHING", None, None)
+    assert _normalise_remote_status({"task": {"state": "downloading", "percent": "35"}}) == (
+        "DOWNLOADING", 35, None
+    )
+    assert _normalise_remote_status({"status": "completed"}) == ("AVAILABLE", 100, None)
+    assert _normalise_remote_status({"state": "failed", "error": "no source"}) == (
+        "FAILED", None, "no source"
+    )
     client.cookies.clear()
     client.post("/api/auth/login", json={"username": "bob", "password": "password1"})
     r = client.get("/api/admin/stats")

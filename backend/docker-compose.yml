@@ -3,43 +3,17 @@ services:
     build: .
     ports:
       - "8000:8000"
-    environment:
-      APP_ENV: production
-      # Use the bundled Postgres by default; comment out to fall back to SQLite.
-      DATABASE_URL: postgresql+psycopg://hma:hma@db:5432/hma
-      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
-      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-hma_session}
-      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
-      # Set to "false" and provide the *_URL vars below to use real services.
-      MOCK_EXTERNAL_SERVICES: ${MOCK_EXTERNAL_SERVICES:-true}
-      NAVIDROME_URL: ${NAVIDROME_URL:-}
-      NAVIDROME_USERNAME: ${NAVIDROME_USERNAME:-}
-      NAVIDROME_PASSWORD: ${NAVIDROME_PASSWORD:-}
-      DROPPEDNEEDLE_URL: ${DROPPEDNEEDLE_URL:-}
-      DROPPEDNEEDLE_API_KEY: ${DROPPEDNEEDLE_API_KEY:-}
-      SLSKD_URL: ${SLSKD_URL:-}
-      SLSKD_API_KEY: ${SLSKD_API_KEY:-}
-      BOOTSTRAP_ADMIN_USERNAME: ${BOOTSTRAP_ADMIN_USERNAME:-admin}
-      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-admin}
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: unless-stopped
-
-  db:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: hma
-      POSTGRES_PASSWORD: hma
-      POSTGRES_DB: hma
+    # Source of truth for deployment settings. It is ignored by Git and the
+    # Docker build context, but is injected into the running container.
+    env_file:
+      - .env
     volumes:
-      - db-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U hma"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      - ./data:/app/data
+    networks:
+      - default
+      - media_default
     restart: unless-stopped
 
-volumes:
-  db-data:
+networks:
+  media_default:
+    external: true

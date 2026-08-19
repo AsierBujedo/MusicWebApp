@@ -20,6 +20,11 @@ class MusicRequest(Base):
     type: Mapped[str] = mapped_column(String(16), nullable=False, default="track")
     track_id: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
 
+    # Identifiers owned by DroppedNeedle. They stay server-side and let the
+    # worker correlate this private request with the remote acquisition.
+    musicbrainz_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    external_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+
     # Denormalized display fields so a request survives even if the source track
     # metadata changes or disappears.
     title: Mapped[str] = mapped_column(String(512), nullable=False)

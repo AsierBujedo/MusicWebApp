@@ -39,7 +39,7 @@ export default function AdminRequestsPage() {
     mutate("admin:stats")
   }
 
-  const moderate = async (req: MusicRequest, status: RequestStatus) => {
+  const moderate = async (req: MusicRequest, status: "APPROVED" | "REJECTED") => {
     try {
       await api.setRequestStatus(req.id, status)
       toast(status === "APPROVED" ? "Solicitud aprobada" : "Solicitud rechazada", status === "APPROVED" ? "success" : "info")

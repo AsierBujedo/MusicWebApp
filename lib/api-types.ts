@@ -81,6 +81,6 @@ export interface MusicApi {
   updateUser(id: string, patch: Partial<User>): Promise<User>
   deleteUser(id: string): Promise<void>
   getAllRequests(): Promise<MusicRequest[]>
-  setRequestStatus(id: string, status: RequestStatus): Promise<MusicRequest>
+  setRequestStatus(id: string, status: "APPROVED" | "REJECTED"): Promise<MusicRequest>
   getServices(): Promise<ServiceHealth[]>
 }

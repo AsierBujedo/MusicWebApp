@@ -18,7 +18,7 @@ ACTIVE_REQUEST_STATUSES = {"PENDING", "DOWNLOADING"}
 
 
 def _status_for(external: ExternalTrack) -> str:
-    return "AVAILABLE" if external.available else "REQUESTABLE"
+    return external.status or ("AVAILABLE" if external.available else "REQUESTABLE")
 
 
 def upsert_external_track(db: DbSession, external: ExternalTrack) -> Track:

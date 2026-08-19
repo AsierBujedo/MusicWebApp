@@ -7,13 +7,14 @@ from sqlalchemy.orm import Session as DbSession
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
+from app.schemas.track import TrackOut
 from app.services import library_service, playlist_service
 from app.services.serializers import track_out
 
 router = APIRouter(prefix="/api/favorites", tags=["favorites"])
 
 
-@router.get("")
+@router.get("", response_model=list[TrackOut])
 def list_favorites(user: User = Depends(get_current_user), db: DbSession = Depends(get_db)):
     tracks = playlist_service.list_favorite_tracks(db, user)
     return [track_out(t) for t in tracks]

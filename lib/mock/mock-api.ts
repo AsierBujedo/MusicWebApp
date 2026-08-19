@@ -382,7 +382,7 @@ class MockApi implements MusicApi {
       .map((r) => ({ ...r }))
   }
 
-  async setRequestStatus(id: string, status: RequestStatus): Promise<MusicRequest> {
+  async setRequestStatus(id: string, status: "APPROVED" | "REJECTED"): Promise<MusicRequest> {
     await delay(250)
     const req = this.requests.find((r) => r.id === id)
     if (!req) throw new ApiError("No encontramos esta solicitud.", 404)

@@ -51,14 +51,23 @@ async def search(db: DbSession, query: str) -> Dict[str, Any]:
     navidrome = get_navidrome_client()
     droppedneedle = get_droppedneedle_client()
 
-    nav = await navidrome.search(q, limit)
-    dn_tracks: List[ExternalTrack] = await droppedneedle.search(q, limit)
+    try:
+        nav = await navidrome.search(q, limit)
+        dn_tracks: List[ExternalTrack] = await droppedneedle.search(q, limit)
+    finally:
+        await navidrome.aclose()
+        await droppedneedle.aclose()
 
     # Merge tracks: owned library first, then acquirable ones not already owned.
-    seen = {(t.provider, t.provider_id) for t in nav.tracks}
+    # Prefer Navidrome for matching songs: it is the only playback provider.
+    # This avoids exposing a DroppedNeedle catalogue ID as a streamable track.
+    def identity(track: ExternalTrack) -> tuple[str, str]:
+        return track.title.casefold().strip(), track.artist.casefold().strip()
+
+    seen = {identity(t) for t in nav.tracks}
     merged: List[ExternalTrack] = list(nav.tracks)
     for t in dn_tracks:
-        key = (t.provider, t.provider_id)
+        key = identity(t)
         if key not in seen:
             merged.append(t)
             seen.add(key)

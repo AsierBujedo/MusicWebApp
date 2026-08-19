@@ -8,13 +8,14 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.history import RecordPlayInput
+from app.schemas.history import HistoryEntryOut
 from app.services import library_service, playlist_service
 from app.services.serializers import history_out
 
 router = APIRouter(prefix="/api/history", tags=["history"])
 
 
-@router.get("")
+@router.get("", response_model=list[HistoryEntryOut])
 def list_history(user: User = Depends(get_current_user), db: DbSession = Depends(get_db)):
     entries = playlist_service.list_history(db, user)
     return [out for out in (history_out(e) for e in entries) if out is not None]

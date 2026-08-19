@@ -27,6 +27,7 @@ class MusicRequestOut(CamelModel):
     cover: Optional[str] = None
     status: RequestStatus
     progress: Optional[int] = None
+    error_message: Optional[str] = None
     created_at: datetime
     requested_by: Optional[str] = None
     requested_by_name: Optional[str] = None

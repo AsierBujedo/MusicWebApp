@@ -67,6 +67,9 @@ def create_request(db: DbSession, *, user: User, type_: str, track: Track) -> Mu
         cover=track.cover,
         status="PENDING",
         progress=None,
+        # Results from DroppedNeedle are persisted behind local opaque track
+        # IDs. Its identifier is a MusicBrainz ID for requestable entries.
+        musicbrainz_id=track.provider_id if track.provider == "droppedneedle" else None,
     )
     db.add(req)
 
@@ -93,7 +96,22 @@ def get_request(db: DbSession, request_id: str) -> Optional[MusicRequest]:
 
 
 def delete_request(db: DbSession, req: MusicRequest) -> None:
+    track = db.get(Track, req.track_id)
     db.delete(req)
+    db.flush()
+    # Do not leave a catalogue item permanently pending when its final local
+    # request was removed. A remote DroppedNeedle task is intentionally not
+    # cancelled here because API v1 cancellation is deployment/version specific.
+    other_active = db.scalar(
+        select(MusicRequest.id).where(
+            MusicRequest.track_id == req.track_id,
+            MusicRequest.status.in_(ACTIVE_STATUSES),
+        ).limit(1)
+    )
+    if track is not None and other_active is None and track.status in {"PENDING", "DOWNLOADING"}:
+        track.status = "REQUESTABLE"
+        track.available = False
+        track.progress = None
     db.commit()
 
 

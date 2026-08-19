@@ -8,6 +8,7 @@ credentials never leave the server.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from starlette.background import BackgroundTask
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session as DbSession
 
@@ -34,10 +35,33 @@ async def stream(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Track not available")
 
     client = get_navidrome_client()
-    handle = await client.open_stream(track.provider_id, request.headers.get("range"))
+    provider_id = track.provider_id
+    # A catalogue result can say it exists locally just before Navidrome's scan
+    # catches up. Resolve it here rather than sending a DroppedNeedle ID to the
+    # Subsonic stream endpoint.
+    if track.provider != "navidrome":
+        found = await client.search(f"{track.artist} {track.title}", limit=10)
+        match = next(
+            (
+                item for item in found.tracks
+                if item.title.casefold() == track.title.casefold()
+                and item.artist.casefold() == track.artist.casefold()
+            ),
+            None,
+        )
+        if match is None:
+            await client.aclose()
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Track is still indexing")
+        track.provider = "navidrome"
+        track.provider_id = match.provider_id
+        track.available = True
+        db.commit()
+        provider_id = match.provider_id
+    handle = await client.open_stream(provider_id, request.headers.get("range"))
     return StreamingResponse(
         handle.body,
         status_code=handle.status_code,
         headers=handle.headers,
         media_type=handle.headers.get("Content-Type", "audio/mpeg"),
+        background=BackgroundTask(client.aclose),
     )

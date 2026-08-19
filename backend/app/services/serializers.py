@@ -66,6 +66,7 @@ def request_out(req, *, requested_by_name: Optional[str] = None) -> Dict[str, An
             "cover": req.cover,
             "status": req.status,
             "progress": req.progress,
+            "errorMessage": req.error_message,
             "createdAt": iso(req.created_at),
             "requestedBy": req.requested_by,
             "requestedByName": requested_by_name,

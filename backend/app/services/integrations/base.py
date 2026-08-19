@@ -25,6 +25,9 @@ class ExternalTrack:
     cover: Optional[str] = None
     # True when the track is present and playable in the library right now.
     available: bool = False
+    # Optional provider state (for example a DroppedNeedle request already in
+    # progress). When omitted, availability determines the public state.
+    status: Optional[str] = None
 
 
 @dataclass

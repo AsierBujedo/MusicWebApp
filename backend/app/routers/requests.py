@@ -8,20 +8,20 @@ from app.core.permissions import ensure_owner_or_admin
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
-from app.schemas.request import CreateRequestInput
+from app.schemas.request import CreateRequestInput, MusicRequestOut
 from app.services import event_service, library_service, request_service
 from app.services.serializers import request_out
 
 router = APIRouter(prefix="/api/requests", tags=["requests"])
 
 
-@router.get("")
+@router.get("", response_model=list[MusicRequestOut])
 def list_requests(user: User = Depends(get_current_user), db: DbSession = Depends(get_db)):
     reqs = request_service.list_requests(db, user=user)
     return [request_out(r, requested_by_name=user.display_name) for r in reqs]
 
 
-@router.post("", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED, response_model=MusicRequestOut)
 async def create_request(
     payload: CreateRequestInput,
     user: User = Depends(get_current_user),
@@ -36,12 +36,12 @@ async def create_request(
     req = request_service.create_request(db, user=user, type_=payload.type, track=track)
     # Reflect the pending state on any open search views.
     await event_service.emit_track_updated(
-        track_id=track.id, status=track.status, progress=None, audience_user_ids=None
+        track_id=track.id, status=track.status, progress=None, audience_user_ids={user.id}
     )
     return request_out(req, requested_by_name=user.display_name)
 
 
-@router.get("/{request_id}")
+@router.get("/{request_id}", response_model=MusicRequestOut)
 def get_request(request_id: str, user: User = Depends(get_current_user), db: DbSession = Depends(get_db)):
     req = request_service.get_request(db, request_id)
     if req is None:
@@ -60,7 +60,7 @@ def delete_request(request_id: str, user: User = Depends(get_current_user), db: 
     return None
 
 
-@router.post("/{request_id}/retry")
+@router.post("/{request_id}/retry", response_model=MusicRequestOut)
 async def retry_request(request_id: str, user: User = Depends(get_current_user), db: DbSession = Depends(get_db)):
     req = request_service.get_request(db, request_id)
     if req is None:

@@ -4,7 +4,6 @@ import type {
   MusicRequest,
   Playlist,
   RealtimeEvent,
-  RequestStatus,
   SearchResults,
   ServiceHealth,
   Track,
@@ -158,7 +157,7 @@ class RealApi implements MusicApi {
   getAllRequests() {
     return request<MusicRequest[]>("/api/admin/requests")
   }
-  setRequestStatus(id: string, status: RequestStatus) {
+  setRequestStatus(id: string, status: "APPROVED" | "REJECTED") {
     const action = status === "REJECTED" ? "reject" : "approve"
     return request<MusicRequest>(`/api/admin/requests/${id}/${action}`, { method: "POST" })
   }

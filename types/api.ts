@@ -82,6 +82,7 @@ export interface MusicRequest {
   cover?: string
   status: RequestStatus
   progress?: number
+  errorMessage?: string
   createdAt: string
   requestedBy?: string
   requestedByName?: string
