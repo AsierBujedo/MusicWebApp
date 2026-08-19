@@ -55,6 +55,7 @@ export interface MusicApi {
   createRequest(input: CreateRequestInput): Promise<MusicRequest>
   deleteRequest(id: string): Promise<void>
   retryRequest(id: string): Promise<MusicRequest>
+  uploadRequestAudio(id: string, file: File): Promise<MusicRequest>
 
   // favorites
   getFavorites(): Promise<Track[]>

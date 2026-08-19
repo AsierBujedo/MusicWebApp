@@ -81,6 +81,8 @@ def request_out(req, *, requested_by_name: Optional[str] = None) -> Dict[str, An
             "status": req.status,
             "progress": req.progress,
             "errorMessage": req.error_message,
+            "soulseekRetryCount": req.soulseek_retry_count,
+            "soulseekRetryAt": iso(req.soulseek_retry_at),
             "createdAt": iso(req.created_at),
             "requestedBy": req.requested_by,
             "requestedByName": requested_by_name,

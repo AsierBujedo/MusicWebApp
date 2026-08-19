@@ -15,7 +15,7 @@ RUN pip install -r requirements.txt
 COPY . .
 
 # Create a non-root user and the data directory for the default SQLite volume
-RUN adduser --disabled-password --gecos "" appuser \
+RUN adduser --uid 1000 --disabled-password --gecos "" appuser \
     && mkdir -p /app/data \
     && chown -R appuser:appuser /app
 USER appuser

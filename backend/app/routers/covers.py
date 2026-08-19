@@ -61,7 +61,7 @@ async def cover(
     if track is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cover not found")
 
-    if track.provider == "droppedneedle":
+    if track.provider in {"droppedneedle", "manual"}:
         try:
             release_mbid = json.loads(track.metadata_json or "{}").get("release_mbid")
         except (TypeError, ValueError):

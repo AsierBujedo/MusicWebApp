@@ -65,6 +65,14 @@ class Settings(BaseSettings):
 
     # ---- Background worker ----
     request_poll_interval_seconds: int = Field(default=10, alias="REQUEST_POLL_INTERVAL_SECONDS")
+    # Keep the homelab acquisition pipeline predictable. Additional approved
+    # requests stay queued until the current DroppedNeedle task finishes.
+    max_concurrent_download_requests: int = Field(default=1, alias="MAX_CONCURRENT_DOWNLOAD_REQUESTS")
+
+    # Shared with Navidrome. Manual imports are written here so they remain in
+    # the normal music library and are indexed on Navidrome's next scan.
+    music_library_path: str = Field(default="/music", alias="MUSIC_LIBRARY_PATH")
+    manual_upload_max_bytes: int = Field(default=314_572_800, alias="MANUAL_UPLOAD_MAX_BYTES")
 
     # ---- Limits ----
     search_min_query_length: int = Field(default=2, alias="SEARCH_MIN_QUERY_LENGTH")

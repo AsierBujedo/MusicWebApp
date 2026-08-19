@@ -194,6 +194,22 @@ class MockApi implements MusicApi {
     return { ...req }
   }
 
+  async uploadRequestAudio(id: string, _file: File): Promise<MusicRequest> {
+    await delay(300)
+    const req = this.requests.find((r) => r.id === id)
+    if (!req) throw new ApiError("No encontramos esta solicitud.", 404)
+    req.status = "AVAILABLE"
+    req.progress = undefined
+    const track = this.tracks.get(req.trackId)
+    if (track) {
+      track.status = "AVAILABLE"
+      track.progress = undefined
+      this.emit({ type: "track.updated", trackId: track.id, status: track.status })
+    }
+    this.emit({ type: "request.updated", requestId: id, status: req.status })
+    return { ...req }
+  }
+
   // Walk a request through its lifecycle emitting realtime events.
   private advanceRequest(id: string, startStep: number) {
     let step = startStep

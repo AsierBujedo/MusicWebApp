@@ -28,6 +28,8 @@ class MusicRequestOut(CamelModel):
     status: RequestStatus
     progress: Optional[int] = None
     error_message: Optional[str] = None
+    soulseek_retry_count: int = 0
+    soulseek_retry_at: Optional[datetime] = None
     created_at: datetime
     requested_by: Optional[str] = None
     requested_by_name: Optional[str] = None

@@ -35,6 +35,11 @@ class MusicRequest(Base):
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="PENDING", index=True)
     progress: Mapped[int | None] = mapped_column(Integer, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Soulseek availability changes constantly. When no matching release is
+    # found, Resonar keeps the request and schedules a later re-search instead
+    # of requiring the requester to manually press retry every time.
+    soulseek_retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    soulseek_retry_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(

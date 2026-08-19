@@ -1,7 +1,7 @@
 """Music request endpoints for the current user: /api/requests/*"""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session as DbSession
 
 from app.core.permissions import ensure_owner_or_admin
@@ -9,7 +9,8 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.request import CreateRequestInput, MusicRequestOut
-from app.services import event_service, library_service, request_service
+from app.services import event_service, library_service, manual_import_service, request_service
+from app.models.base import utcnow
 from app.services.serializers import request_out
 
 router = APIRouter(prefix="/api/requests", tags=["requests"])
@@ -73,4 +74,45 @@ async def retry_request(request_id: str, user: User = Depends(get_current_user),
     await event_service.emit_request_updated(
         request_id=req.id, status=req.status, progress=req.progress, owner_user_id=req.requested_by
     )
+    return request_out(req, requested_by_name=user.display_name)
+
+
+@router.post("/{request_id}/upload", response_model=MusicRequestOut)
+async def upload_failed_request(
+    request_id: str,
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+    db: DbSession = Depends(get_db),
+):
+    """Import a user-supplied MP3/FLAC for a failed request.
+
+    The uploaded file is treated purely as audio. Its own tags and artwork are
+    removed and replaced with the metadata already stored by Resonar.
+    """
+    req = request_service.get_request(db, request_id)
+    if req is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Request not found")
+    ensure_owner_or_admin(user, req.requested_by)
+    if req.status != "FAILED":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only failed requests can be imported manually")
+    track = library_service.get_track(db, req.track_id)
+    if track is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Track not found")
+
+    destination = await manual_import_service.import_audio(upload=file, track=track)
+    track.provider = "manual"
+    track.provider_id = None
+    track.file_reference = str(destination)
+    track.status = "AVAILABLE"
+    track.available = True
+    track.progress = None
+    track.updated_at = utcnow()
+    try:
+        req = request_service.transition(db, req, "AVAILABLE", error_message=None)
+    except request_service.RequestError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    await event_service.emit_track_updated(
+        track_id=track.id, status=track.status, progress=None, audience_user_ids={req.requested_by}
+    )
+    await event_service.emit_request_updated(request_id=req.id, status=req.status, progress=req.progress, owner_user_id=req.requested_by)
     return request_out(req, requested_by_name=user.display_name)

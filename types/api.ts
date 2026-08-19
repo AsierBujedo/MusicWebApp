@@ -113,6 +113,8 @@ export interface MusicRequest {
   status: RequestStatus
   progress?: number
   errorMessage?: string
+  soulseekRetryCount?: number
+  soulseekRetryAt?: string
   createdAt: string
   requestedBy?: string
   requestedByName?: string

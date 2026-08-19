@@ -35,7 +35,7 @@ VALID_TRANSITIONS = {
     "DOWNLOADING": {"AVAILABLE", "FAILED"},
     "AVAILABLE": set(),
     "REJECTED": {"PENDING"},  # retry
-    "FAILED": {"PENDING"},  # retry
+    "FAILED": {"PENDING", "APPROVED", "AVAILABLE"},  # retry or manual import
 }
 
 
@@ -146,4 +146,5 @@ def retry(db: DbSession, req: MusicRequest) -> MusicRequest:
         raise RequestError("Only failed or rejected requests can be retried")
     req.progress = None
     req.error_message = None
+    req.soulseek_retry_at = None
     return transition(db, req, "PENDING")

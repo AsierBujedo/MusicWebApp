@@ -80,6 +80,17 @@ class RealApi implements MusicApi {
   retryRequest(id: string) {
     return request<MusicRequest>(`/api/requests/${id}/retry`, { method: "POST" })
   }
+  async uploadRequestAudio(id: string, file: File) {
+    const form = new FormData()
+    form.append("file", file)
+    const res = await fetch(`${BASE}/api/requests/${id}/upload`, { method: "POST", credentials: "include", body: form })
+    if (!res.ok) {
+      if (res.status === 401) throw new ApiError("Necesitas iniciar sesión.", 401)
+      if (res.status === 403) throw new ApiError("No tienes permiso para esto.", 403)
+      throw new ApiError("No se pudo importar el archivo de audio.", res.status)
+    }
+    return res.json() as Promise<MusicRequest>
+  }
 
   getFavorites() {
     return request<Track[]>("/api/favorites")

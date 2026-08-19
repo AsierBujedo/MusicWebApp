@@ -8,12 +8,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import timedelta
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from app.config import settings
 from app.database import SessionLocal
+from app.models.base import utcnow
 from app.models.music_request import MusicRequest
 from app.models.track import Track
 from app.services import event_service, request_service
@@ -22,17 +24,43 @@ from app.services.integrations.base import ExternalTrack
 
 logger = logging.getLogger(__name__)
 _MOCK_PROGRESS_STEP = 25
+_SOULSEEK_RETRY_DELAY = timedelta(hours=1)
+_SOULSEEK_NO_MATCH = "no matching release found on soulseek"
 
 
 async def _advance_once() -> None:
     db = SessionLocal()
     try:
-        active = list(db.scalars(select(MusicRequest).where(
-            MusicRequest.status.in_(["APPROVED", "SEARCHING", "DOWNLOADING"])
-        )).all())
+        now = utcnow()
+        active = list(db.scalars(
+            select(MusicRequest).where(
+                or_(
+                    MusicRequest.status.in_(["APPROVED", "SEARCHING", "DOWNLOADING"]),
+                    (MusicRequest.status == "FAILED") & (MusicRequest.soulseek_retry_at <= now),
+                )
+            ).order_by(MusicRequest.created_at.asc())
+        ).all())
+        max_concurrent = max(1, settings.max_concurrent_download_requests)
+        in_flight = sum(req.status in {"SEARCHING", "DOWNLOADING"} for req in active)
         for req in active:
             try:
+                # APPROVED means queued locally. Only hand the next item to
+                # DroppedNeedle once the current acquisition has reached a
+                # terminal state, avoiding overlapping Soulseek searches and
+                # downloads in a small homelab.
+                if req.status == "APPROVED" and in_flight >= max_concurrent:
+                    continue
+
+                previous_status = req.status
                 await _advance_request(db, req)
+                if previous_status == "APPROVED" and req.status in {"SEARCHING", "DOWNLOADING"}:
+                    in_flight += 1
+                elif previous_status in {"SEARCHING", "DOWNLOADING"} and req.status not in {"SEARCHING", "DOWNLOADING"}:
+                    in_flight = max(0, in_flight - 1)
+                elif previous_status == "FAILED" and req.status == "APPROVED":
+                    # A scheduled retry has claimed the next slot; it will be
+                    # submitted on the following worker pass.
+                    in_flight += 1
             except Exception:
                 logger.exception("Failed advancing request %s", req.id)
                 db.rollback()
@@ -41,6 +69,10 @@ async def _advance_once() -> None:
 
 
 async def _advance_request(db, req: MusicRequest) -> None:
+    if req.status == "FAILED":
+        await _resume_soulseek_retry(db, req)
+        return
+
     if settings.mock_external_services:
         await _advance_mock_request(db, req)
         return
@@ -163,6 +195,27 @@ async def _set_request_status(db, req: MusicRequest, status: str, progress: Opti
 
 
 async def _fail(db, req: MusicRequest, message: str) -> None:
+    if _SOULSEEK_NO_MATCH in message.casefold():
+        retry_at = utcnow() + _SOULSEEK_RETRY_DELAY
+        req.soulseek_retry_count += 1
+        req.soulseek_retry_at = retry_at
+        req = request_service.transition(
+            db,
+            req,
+            "FAILED",
+            error_message="No matching release found on Soulseek. Se reintentará automáticamente en una hora.",
+        )
+        logger.info(
+            "Soulseek retry scheduled for request %s at %s (attempt %s)",
+            req.id,
+            retry_at.isoformat(),
+            req.soulseek_retry_count,
+        )
+        await event_service.emit_request_updated(
+            request_id=req.id, status=req.status, progress=req.progress, owner_user_id=req.requested_by
+        )
+        return
+
     req = request_service.transition(db, req, "FAILED", error_message=message)
     track = db.get(Track, req.track_id)
     if track is not None:
@@ -170,6 +223,17 @@ async def _fail(db, req: MusicRequest, message: str) -> None:
         track.available = False
         track.progress = None
         db.commit()
+    await event_service.emit_request_updated(
+        request_id=req.id, status=req.status, progress=req.progress, owner_user_id=req.requested_by
+    )
+
+
+async def _resume_soulseek_retry(db, req: MusicRequest) -> None:
+    """Turn a due retry back into a fresh DroppedNeedle submission."""
+    req.external_id = None
+    req.soulseek_retry_at = None
+    req = request_service.transition(db, req, "APPROVED", error_message=None)
+    logger.info("Resuming scheduled Soulseek retry for request %s", req.id)
     await event_service.emit_request_updated(
         request_id=req.id, status=req.status, progress=req.progress, owner_user_id=req.requested_by
     )

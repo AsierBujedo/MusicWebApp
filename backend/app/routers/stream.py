@@ -9,10 +9,12 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from starlette.background import BackgroundTask
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
+from pathlib import Path
 from sqlalchemy.orm import Session as DbSession
 
 from app.database import get_db
+from app.config import settings
 from app.dependencies import get_current_user
 from app.models.user import User
 from app.services import library_service
@@ -31,7 +33,21 @@ async def stream(
     track = library_service.get_track(db, track_id)
     if track is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Track not found")
-    if track.status != "AVAILABLE" or not track.provider_id:
+    if track.status != "AVAILABLE":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Track not available")
+
+    # A manually supplied file is playable immediately; Navidrome will also
+    # index the shared library shortly afterwards. Resolve and validate the
+    # path so a database value can never expose a file outside the library.
+    if track.provider == "manual" and track.file_reference:
+        library_root = Path(settings.music_library_path).resolve()
+        source = Path(track.file_reference).resolve()
+        if not source.is_file() or not source.is_relative_to(library_root):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Manual audio file not found")
+        media_type = "audio/flac" if source.suffix.lower() == ".flac" else "audio/mpeg"
+        return FileResponse(source, media_type=media_type)
+
+    if not track.provider_id:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Track not available")
 
     client = get_navidrome_client()

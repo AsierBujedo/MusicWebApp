@@ -11,6 +11,9 @@ services:
       - ./backend/.env
     volumes:
       - backend_data:/app/data
+      # Same host library as Navidrome: manual imports become part of the
+      # normal catalogue, while Resonar can play them straight away.
+      - /media/music:/music:rw
     networks:
       - default
       - media_default
