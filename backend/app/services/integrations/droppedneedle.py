@@ -83,36 +83,60 @@ class RealDroppedNeedleClient:
 
     async def search(self, query: str, limit: int) -> List[ExternalTrack]:
         try:
-            response = await self._request("GET", "/api/v1/search", params={"q": query})
-            payload = self._payload(response)
+            # DroppedNeedle API builds have used both ``q`` and ``query``.
+            # Sending both is backwards-compatible and prevents a silent empty
+            # catalogue when an installation expects the latter.
+            response = await self._request("GET", "/api/v1/search", params={"q": query, "query": query})
+            raw_payload = response.json()
         except Exception:
             logger.warning("DroppedNeedle search failed", exc_info=True)
             return []
 
-        results = payload.get("results", payload.get("items", []))
+        payload = raw_payload.get("data", raw_payload) if isinstance(raw_payload, dict) else raw_payload
+        if isinstance(payload, list):
+            results = payload
+        elif isinstance(payload, dict):
+            results = payload.get("results", payload.get("items", payload.get("tracks", payload.get("songs", []))))
+        else:
+            results = []
         if not isinstance(results, list):
             return []
         tracks: List[ExternalTrack] = []
         for result in results[:limit]:
             if not isinstance(result, dict):
                 continue
-            musicbrainz_id = result.get("musicbrainz_id") or result.get("musicbrainzId")
-            if not musicbrainz_id or result.get("type", "track") not in {"track", "recording"}:
+            # Some API versions wrap the recording object, while others put
+            # every field directly in the result.
+            item = result.get("recording", result.get("track", result))
+            if not isinstance(item, dict):
                 continue
+            kind = str(result.get("type") or item.get("type") or "track").lower()
+            if kind not in {"track", "recording", "song"}:
+                continue
+            musicbrainz_id = (
+                item.get("musicbrainz_id") or item.get("musicbrainzId")
+                or item.get("musicbrainz_recording_id") or item.get("recording_mbid")
+                or item.get("mbid")
+            )
+            if not musicbrainz_id:
+                continue
+            artist = item.get("artist") or item.get("artist_name") or result.get("artist") or ""
+            if isinstance(artist, dict):
+                artist = artist.get("name", "")
             tracks.append(
                 ExternalTrack(
                     provider="droppedneedle",
                     provider_id=str(musicbrainz_id),
-                    title=str(result.get("title") or ""),
-                    artist=str(result.get("artist") or ""),
-                    album=result.get("album"),
-                    year=result.get("year"),
-                    duration=result.get("duration"),
-                    cover=result.get("cover_url") or result.get("album_thumb_url") or result.get("thumb_url"),
-                    available=bool(result.get("in_library", False)),
+                    title=str(item.get("title") or item.get("name") or item.get("track_name") or ""),
+                    artist=str(artist),
+                    album=item.get("album") or item.get("album_name"),
+                    year=item.get("year") or item.get("release_year"),
+                    duration=item.get("duration") or item.get("duration_seconds"),
+                    cover=item.get("cover_url") or item.get("album_thumb_url") or item.get("thumb_url"),
+                    available=bool(item.get("in_library", False)),
                     status=(
-                        "AVAILABLE" if result.get("in_library", False)
-                        else "PENDING" if result.get("requested", False)
+                        "AVAILABLE" if item.get("in_library", False)
+                        else "PENDING" if item.get("requested", False)
                         else "REQUESTABLE"
                     ),
                 )
