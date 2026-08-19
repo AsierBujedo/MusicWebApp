@@ -10,6 +10,7 @@ export interface User {
   email?: string
   avatar?: string
   role: Role
+  autoApproveRequests?: boolean
   active?: boolean
   lastSeen?: string
 }

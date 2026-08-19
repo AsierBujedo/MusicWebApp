@@ -44,7 +44,7 @@ class RequestError(Exception):
 
 
 def create_request(db: DbSession, *, user: User, type_: str, track: Track) -> MusicRequest:
-    """Create a PENDING request for ``track`` on behalf of ``user``.
+    """Create a request for ``track`` on behalf of ``user``.
 
     Idempotent per (user, track): an already-active request is returned instead
     of creating a duplicate."""
@@ -65,7 +65,7 @@ def create_request(db: DbSession, *, user: User, type_: str, track: Track) -> Mu
         title=track.title,
         artist=track.artist,
         cover=track.cover,
-        status="PENDING",
+        status="APPROVED" if user.auto_approve_requests else "PENDING",
         progress=None,
         # Results from DroppedNeedle are persisted behind local opaque track
         # IDs. Its identifier is a MusicBrainz ID for requestable entries.

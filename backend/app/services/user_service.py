@@ -30,6 +30,7 @@ def create_user(
     email: Optional[str],
     role: str,
     password: str,
+    auto_approve_requests: bool = False,
 ) -> User:
     normalized = username.strip().lower()
     if not normalized:
@@ -43,6 +44,7 @@ def create_user(
         display_name=display_name.strip() or normalized,
         email=(email or "").strip() or None,
         role=role if role in {"ADMIN", "USER"} else "USER",
+        auto_approve_requests=bool(auto_approve_requests) if role == "USER" else False,
         active=True,
         password_hash=security.hash_password(password),
     )
@@ -60,6 +62,7 @@ def update_user(
     email: Optional[str] = None,
     avatar: Optional[str] = None,
     role: Optional[str] = None,
+    auto_approve_requests: Optional[bool] = None,
     active: Optional[bool] = None,
 ) -> User:
     if display_name is not None:
@@ -70,6 +73,10 @@ def update_user(
         user.avatar = avatar.strip() or None
     if role is not None and role in {"ADMIN", "USER"}:
         user.role = role
+        if role == "ADMIN":
+            user.auto_approve_requests = False
+    if auto_approve_requests is not None and user.role == "USER":
+        user.auto_approve_requests = auto_approve_requests
     if active is not None:
         user.active = active
     db.commit()

@@ -19,6 +19,9 @@ class User(Base):
     avatar: Mapped[str | None] = mapped_column(String(512), nullable=True)
     # "ADMIN" or "USER" — stored as string to match the frontend contract exactly.
     role: Mapped[str] = mapped_column(String(16), nullable=False, default="USER")
+    # Allows a trusted regular user to bypass the moderation queue. It never
+    # grants administrative access.
+    auto_approve_requests: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     last_seen: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

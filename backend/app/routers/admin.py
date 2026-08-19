@@ -66,6 +66,7 @@ def create_user(
             email=payload.email,
             role=payload.role,
             password=payload.password,
+            auto_approve_requests=payload.auto_approve_requests,
         )
     except user_service.UserError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
@@ -93,6 +94,7 @@ def update_user(
         email=payload.email,
         avatar=payload.avatar,
         role=payload.role,
+        auto_approve_requests=payload.auto_approve_requests,
         active=payload.active,
     )
     return user_out(user)

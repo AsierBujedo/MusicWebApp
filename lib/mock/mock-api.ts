@@ -368,6 +368,7 @@ class MockApi implements MusicApi {
       displayName: input.displayName,
       email: input.email,
       role: input.role,
+      autoApproveRequests: input.role === "USER" && input.autoApproveRequests,
       active: true,
       avatar: cover(`${input.username}-avatar`),
       lastSeen: new Date().toISOString(),

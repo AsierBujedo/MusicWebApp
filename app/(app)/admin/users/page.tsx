@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import useSWR, { useSWRConfig } from "swr"
-import { UserPlus, MoreHorizontal, Shield, Trash2, Power } from "lucide-react"
+import { UserPlus, MoreHorizontal, Shield, Trash2, Power, BadgeCheck } from "lucide-react"
 import type { Role, User } from "@/types/api"
 import { api } from "@/lib/api"
 import { useAuth } from "@/components/providers/auth-provider"
@@ -22,7 +22,7 @@ export default function AdminUsersPage() {
   const { user: me } = useAuth()
 
   const [creating, setCreating] = React.useState(false)
-  const [form, setForm] = React.useState({ username: "", displayName: "", email: "", password: "", role: "USER" as Role })
+  const [form, setForm] = React.useState({ username: "", displayName: "", email: "", password: "", role: "USER" as Role, autoApproveRequests: false })
   const [saving, setSaving] = React.useState(false)
 
   const users = data ?? []
@@ -42,10 +42,11 @@ export default function AdminUsersPage() {
         password: form.password,
         email: form.email.trim() || undefined,
         role: form.role,
+        autoApproveRequests: form.role === "USER" && form.autoApproveRequests,
       })
       toast("Usuario creado con su contraseña", "success")
       setCreating(false)
-      setForm({ username: "", displayName: "", email: "", password: "", role: "USER" })
+      setForm({ username: "", displayName: "", email: "", password: "", role: "USER", autoApproveRequests: false })
       refresh()
     } catch {
       toast("No se pudo crear el usuario", "error")
@@ -68,6 +69,16 @@ export default function AdminUsersPage() {
     try {
       await api.updateUser(u.id, { role: u.role === "ADMIN" ? "USER" : "ADMIN" })
       toast("Rol actualizado", "info")
+      refresh()
+    } catch {
+      toast("No se pudo actualizar", "error")
+    }
+  }
+
+  const toggleAutoApproval = async (u: User) => {
+    try {
+      await api.updateUser(u.id, { autoApproveRequests: !u.autoApproveRequests })
+      toast(u.autoApproveRequests ? "Autoaprobación desactivada" : "Solicitudes autoaprobadas", "info")
       refresh()
     } catch {
       toast("No se pudo actualizar", "error")
@@ -120,6 +131,9 @@ export default function AdminUsersPage() {
                   {!u.active && (
                     <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">Inactivo</span>
                   )}
+                  {u.role === "USER" && u.autoApproveRequests && (
+                    <span className="flex items-center gap-1 rounded-full bg-status-success/15 px-1.5 py-0.5 text-[10px] font-medium text-status-success"><BadgeCheck className="h-2.5 w-2.5" />Autoaprueba</span>
+                  )}
                 </div>
                 <p className="truncate text-xs text-muted-foreground">
                   @{u.username}
@@ -141,6 +155,9 @@ export default function AdminUsersPage() {
                   <DropdownItem icon={Power} onClick={() => toggleActive(u)}>
                     {u.active ? "Desactivar" : "Activar"}
                   </DropdownItem>
+                  {u.role === "USER" && <DropdownItem icon={BadgeCheck} onClick={() => toggleAutoApproval(u)}>
+                    {u.autoApproveRequests ? "Quitar autoaprobación" : "Autoaprobar solicitudes"}
+                  </DropdownItem>}
                   <DropdownItem icon={Trash2} destructive onClick={() => remove(u)}>
                     Eliminar
                   </DropdownItem>
@@ -197,6 +214,12 @@ export default function AdminUsersPage() {
               ))}
             </div>
           </div>
+          {form.role === "USER" && (
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border p-3 transition-colors hover:bg-secondary/50">
+              <input type="checkbox" checked={form.autoApproveRequests} onChange={(e) => setForm((f) => ({ ...f, autoApproveRequests: e.target.checked }))} className="mt-0.5 h-4 w-4 accent-primary" />
+              <span><span className="block text-sm font-medium">Autoaprobar solicitudes</span><span className="mt-0.5 block text-xs text-muted-foreground">Sus solicitudes pasarán directamente a descarga, sin moderación manual.</span></span>
+            </label>
+          )}
           <div className="flex gap-3 pt-2">
             <Button variant="secondary" className="flex-1" onClick={() => setCreating(false)}>Cancelar</Button>
             <Button className="flex-1" onClick={handleCreate} disabled={saving || !form.username.trim() || !form.displayName.trim() || form.password.length < 6}>

@@ -22,6 +22,7 @@ export interface CreateUserInput {
   password: string
   email?: string
   role: "ADMIN" | "USER"
+  autoApproveRequests?: boolean
 }
 
 // A friendly error the UI can show without leaking technical detail.

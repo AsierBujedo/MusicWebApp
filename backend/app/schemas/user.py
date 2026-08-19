@@ -19,6 +19,7 @@ class UserOut(CamelModel):
     email: Optional[str] = None
     avatar: Optional[str] = None
     role: Role
+    auto_approve_requests: bool = False
     active: bool = True
     last_seen: Optional[datetime] = None
 
@@ -28,6 +29,7 @@ class CreateUserInput(CamelModel):
     display_name: str = Field(min_length=1, max_length=120)
     email: Optional[str] = Field(default=None, max_length=255)
     role: Role = "USER"
+    auto_approve_requests: bool = False
     password: str = Field(min_length=6, max_length=256)
 
 
@@ -36,4 +38,5 @@ class UpdateUserInput(CamelModel):
     email: Optional[str] = Field(default=None, max_length=255)
     avatar: Optional[str] = Field(default=None, max_length=512)
     role: Optional[Role] = None
+    auto_approve_requests: Optional[bool] = None
     active: Optional[bool] = None
