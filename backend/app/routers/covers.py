@@ -1,6 +1,9 @@
 """Authenticated cover-art proxy for Navidrome."""
 from __future__ import annotations
 
+import json
+
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from starlette.background import BackgroundTask
@@ -22,7 +25,48 @@ async def cover(
     db: DbSession = Depends(get_db),
 ):
     track = library_service.get_track(db, track_id)
-    if track is None or track.provider != "navidrome" or not track.provider_id:
+    if track is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cover not found")
+
+    if track.provider == "droppedneedle":
+        try:
+            release_mbid = json.loads(track.metadata_json or "{}").get("release_mbid")
+        except (TypeError, ValueError):
+            release_mbid = None
+        if not release_mbid:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cover not found")
+        client = httpx.AsyncClient(timeout=httpx.Timeout(15.0), follow_redirects=True)
+        try:
+            response = await client.send(
+                client.build_request("GET", f"https://coverartarchive.org/release/{release_mbid}/front-250"),
+                stream=True,
+            )
+        except httpx.HTTPError:
+            await client.aclose()
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Cover service unavailable")
+        if response.status_code >= 400:
+            await response.aclose()
+            await client.aclose()
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cover not found")
+
+        async def musicbrainz_body():
+            try:
+                async for chunk in response.aiter_bytes():
+                    yield chunk
+            finally:
+                await response.aclose()
+
+        headers = {"Cache-Control": "public, max-age=86400"}
+        if "content-length" in response.headers:
+            headers["Content-Length"] = response.headers["content-length"]
+        return StreamingResponse(
+            musicbrainz_body(),
+            headers=headers,
+            media_type=response.headers.get("content-type", "image/jpeg"),
+            background=BackgroundTask(client.aclose),
+        )
+
+    if track.provider != "navidrome" or not track.provider_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cover not found")
 
     navidrome = get_navidrome_client()

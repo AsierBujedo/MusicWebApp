@@ -2,6 +2,7 @@
 IDs and converting ORM tracks into the frontend ``Track`` shape."""
 from __future__ import annotations
 
+import json
 from typing import Optional
 
 from sqlalchemy import select
@@ -41,6 +42,7 @@ def upsert_external_track(db: DbSession, external: ExternalTrack) -> Track:
             cover=external.cover,
             year=external.year,
             duration=external.duration,
+            metadata_json=json.dumps(external.metadata) if external.metadata else None,
             available=external.available,
             status=_status_for(external),
         )
@@ -62,6 +64,8 @@ def upsert_external_track(db: DbSession, external: ExternalTrack) -> Track:
     track.cover = f"/api/covers/{track.id}" if external.cover_id else external.cover or track.cover
     track.year = external.year
     track.duration = external.duration
+    if external.metadata:
+        track.metadata_json = json.dumps(external.metadata)
     track.updated_at = utcnow()
 
     # Only touch availability/status when not in an active request lifecycle.

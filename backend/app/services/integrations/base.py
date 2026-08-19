@@ -6,7 +6,7 @@ integrations are trivially mockable in tests and swappable in production.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import AsyncIterator, List, Optional, Protocol, Tuple
+from typing import Any, AsyncIterator, List, Optional, Protocol, Tuple
 
 
 # --- Data transfer objects (provider-neutral) ---
@@ -31,6 +31,9 @@ class ExternalTrack:
     # Optional provider state (for example a DroppedNeedle request already in
     # progress). When omitted, availability determines the public state.
     status: Optional[str] = None
+    # Provider metadata retained server-side (for example a MusicBrainz release
+    # ID used by the authenticated cover-art proxy).
+    metadata: Optional[dict[str, Any]] = None
 
 
 @dataclass

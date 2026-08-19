@@ -216,6 +216,7 @@ class RealDroppedNeedleClient:
                     duration=duration,
                     available=False,
                     status="REQUESTABLE",
+                    metadata={"release_mbid": release.get("id")} if release.get("id") else None,
                 )
             )
         if tracks:

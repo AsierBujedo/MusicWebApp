@@ -4,6 +4,7 @@ every endpoint emits an identical shape and never leaks internal columns
 (``file_reference``, ``provider_id``, ``password_hash``...)."""
 from __future__ import annotations
 
+import json
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session as DbSession
@@ -24,7 +25,15 @@ def _compact(data: Dict[str, Any]) -> Dict[str, Any]:
 def track_out(track: Track) -> Dict[str, Any]:
     # Existing library rows may predate cover persistence. Navidrome remains
     # authoritative, so expose the same authenticated proxy for those rows.
-    cover = track.cover or (f"/api/covers/{track.id}" if track.provider == "navidrome" else None)
+    has_musicbrainz_release = False
+    if track.provider == "droppedneedle" and track.metadata_json:
+        try:
+            has_musicbrainz_release = bool(json.loads(track.metadata_json).get("release_mbid"))
+        except (TypeError, ValueError):
+            pass
+    cover = track.cover or (
+        f"/api/covers/{track.id}" if track.provider == "navidrome" or has_musicbrainz_release else None
+    )
     return _compact(
         {
             "id": track.id,
