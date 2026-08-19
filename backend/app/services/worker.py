@@ -126,6 +126,7 @@ async def _publish_when_indexed(db, req: MusicRequest) -> None:
     track.artist_id = match.artist_id
     track.year = match.year
     track.duration = match.duration
+    track.cover = f"/api/covers/{track.id}" if match.cover_id else track.cover
     track.available = True
     track.status = "AVAILABLE"
     track.progress = None

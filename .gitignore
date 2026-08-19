@@ -1,0 +1,24 @@
+# Environment files and secrets
+.env
+.env.*
+!.env.example
+!backend/.env.example
+
+# Node / Next.js build output
+node_modules/
+.next/
+out/
+
+# Python environments, caches and local databases
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/.pytest_cache/
+backend/data/
+backend/*.db
+backend/**/*.db
+
+# Editor and operating-system files
+.DS_Store
+.idea/
+.vscode/

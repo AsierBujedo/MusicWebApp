@@ -110,6 +110,12 @@ class MockNavidromeClient:
             headers["Content-Range"] = f"bytes {start}-{end}/{total}"
         return StreamHandle(status_code=status_code, headers=headers, body=gen())
 
+    async def open_cover(self, provider_id: str) -> StreamHandle:
+        async def gen() -> AsyncIterator[bytes]:
+            yield b""
+
+        return StreamHandle(status_code=404, headers={}, body=gen())
+
     async def aclose(self) -> None:
         return None
 

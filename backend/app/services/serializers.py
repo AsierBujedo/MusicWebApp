@@ -22,6 +22,9 @@ def _compact(data: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def track_out(track: Track) -> Dict[str, Any]:
+    # Existing library rows may predate cover persistence. Navidrome remains
+    # authoritative, so expose the same authenticated proxy for those rows.
+    cover = track.cover or (f"/api/covers/{track.id}" if track.provider == "navidrome" else None)
     return _compact(
         {
             "id": track.id,
@@ -30,7 +33,7 @@ def track_out(track: Track) -> Dict[str, Any]:
             "artistId": track.artist_id,
             "album": track.album,
             "albumId": track.album_id,
-            "cover": track.cover,
+            "cover": cover,
             "year": track.year,
             "duration": track.duration,
             "status": track.status,

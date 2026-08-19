@@ -23,6 +23,9 @@ class ExternalTrack:
     year: Optional[int] = None
     duration: Optional[int] = None
     cover: Optional[str] = None
+    # Provider-private cover-art identifier. It is resolved by the backend
+    # proxy and must never be sent to the browser as an upstream URL.
+    cover_id: Optional[str] = None
     # True when the track is present and playable in the library right now.
     available: bool = False
     # Optional provider state (for example a DroppedNeedle request already in
@@ -80,6 +83,7 @@ class NavidromeClient(Protocol):
     async def search(self, query: str, limit: int) -> ExternalSearch: ...
     async def get_track(self, provider_id: str) -> Optional[ExternalTrack]: ...
     async def open_stream(self, provider_id: str, range_header: Optional[str]) -> StreamHandle: ...
+    async def open_cover(self, provider_id: str) -> StreamHandle: ...
     async def aclose(self) -> None: ...
 
 

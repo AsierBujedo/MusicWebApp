@@ -47,6 +47,10 @@ def upsert_external_track(db: DbSession, external: ExternalTrack) -> Track:
         db.add(track)
         db.commit()
         db.refresh(track)
+        if external.cover_id:
+            track.cover = f"/api/covers/{track.id}"
+            db.commit()
+            db.refresh(track)
         return track
 
     # Refresh metadata.
@@ -55,7 +59,7 @@ def upsert_external_track(db: DbSession, external: ExternalTrack) -> Track:
     track.artist_id = external.artist_id
     track.album = external.album
     track.album_id = external.album_id
-    track.cover = external.cover or track.cover
+    track.cover = f"/api/covers/{track.id}" if external.cover_id else external.cover or track.cover
     track.year = external.year
     track.duration = external.duration
     track.updated_at = utcnow()

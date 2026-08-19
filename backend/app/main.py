@@ -20,6 +20,7 @@ from app.database import Base, engine
 from app.routers import (
     admin,
     auth,
+    covers,
     events,
     favorites,
     health,
@@ -104,7 +105,7 @@ if settings.cors_origins:
     )
 
 # Register routers.
-for module in (auth, search, tracks, stream, requests, favorites, playlists, history, events, admin, health):
+for module in (auth, search, tracks, stream, covers, requests, favorites, playlists, history, events, admin, health):
     app.include_router(module.router)
 
 # Keep the documented container probe stable while the frontend continues to

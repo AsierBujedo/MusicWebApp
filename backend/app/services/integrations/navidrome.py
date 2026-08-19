@@ -141,6 +141,25 @@ class RealNavidromeClient:
         forwarded.setdefault("Accept-Ranges", "bytes")
         return StreamHandle(status_code=resp.status_code, headers=forwarded, body=body())
 
+    async def open_cover(self, provider_id: str) -> StreamHandle:
+        params = self._auth_params()
+        params["id"] = provider_id
+        req = self._client.build_request("GET", self._url("getCoverArt.view"), params=params)
+        resp = await self._client.send(req, stream=True)
+
+        async def body() -> AsyncIterator[bytes]:
+            try:
+                async for chunk in resp.aiter_bytes():
+                    yield chunk
+            finally:
+                await resp.aclose()
+
+        headers = {}
+        for header in ("content-type", "content-length", "cache-control"):
+            if header in resp.headers:
+                headers[header.title()] = resp.headers[header]
+        return StreamHandle(status_code=resp.status_code, headers=headers, body=body())
+
     def _song_to_track(self, s: dict) -> ExternalTrack:
         return ExternalTrack(
             provider="navidrome",
@@ -152,6 +171,7 @@ class RealNavidromeClient:
             album_id=str(s.get("albumId")) if s.get("albumId") else None,
             year=s.get("year"),
             duration=s.get("duration"),
+            cover_id=str(s.get("coverArt")) if s.get("coverArt") else None,
             available=True,
         )
 
