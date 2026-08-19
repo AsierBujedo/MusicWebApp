@@ -6,7 +6,9 @@ orchestrator for this application.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
+import time
 from typing import Any, List, Optional
 
 import httpx
@@ -18,6 +20,11 @@ from app.services.integrations.mocks import MockDroppedNeedleClient
 logger = logging.getLogger(__name__)
 _MUSICBRAINZ_API = "https://musicbrainz.org/ws/2"
 _MUSICBRAINZ_USER_AGENT = "Resonar/1.0 (self-hosted music catalogue fallback)"
+_MUSICBRAINZ_MIN_INTERVAL_SECONDS = 1.1
+_MUSICBRAINZ_CACHE_TTL_SECONDS = 600
+_musicbrainz_lock = asyncio.Lock()
+_musicbrainz_last_request_at = 0.0
+_musicbrainz_cache: dict[str, tuple[float, List[ExternalTrack]]] = {}
 
 
 class RealDroppedNeedleClient:
@@ -151,13 +158,24 @@ class RealDroppedNeedleClient:
         return tracks or await self._search_musicbrainz(query, limit)
 
     async def _search_musicbrainz(self, query: str, limit: int) -> List[ExternalTrack]:
+        cache_key = query.casefold().strip()
+        cached = _musicbrainz_cache.get(cache_key)
+        if cached and cached[0] > time.monotonic():
+            return cached[1][:limit]
+
+        global _musicbrainz_last_request_at
         try:
-            response = await self._client.get(
-                f"{_MUSICBRAINZ_API}/recording/",
-                params={"query": query, "fmt": "json", "limit": limit},
-                headers={"User-Agent": _MUSICBRAINZ_USER_AGENT},
-                timeout=httpx.Timeout(20.0),
-            )
+            async with _musicbrainz_lock:
+                elapsed = time.monotonic() - _musicbrainz_last_request_at
+                if elapsed < _MUSICBRAINZ_MIN_INTERVAL_SECONDS:
+                    await asyncio.sleep(_MUSICBRAINZ_MIN_INTERVAL_SECONDS - elapsed)
+                _musicbrainz_last_request_at = time.monotonic()
+                response = await self._client.get(
+                    f"{_MUSICBRAINZ_API}/recording/",
+                    params={"query": query, "fmt": "json", "limit": limit},
+                    headers={"User-Agent": _MUSICBRAINZ_USER_AGENT},
+                    timeout=httpx.Timeout(settings.musicbrainz_timeout_seconds),
+                )
             response.raise_for_status()
             recordings = response.json().get("recordings", [])
         except (httpx.HTTPError, ValueError):
@@ -200,6 +218,8 @@ class RealDroppedNeedleClient:
                     status="REQUESTABLE",
                 )
             )
+        if tracks:
+            _musicbrainz_cache[cache_key] = (time.monotonic() + _MUSICBRAINZ_CACHE_TTL_SECONDS, tracks)
         return tracks
 
     async def request(self, *, type: str, title: str, artist: str, provider_id: Optional[str]) -> dict:

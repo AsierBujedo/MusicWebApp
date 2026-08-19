@@ -24,7 +24,9 @@ export default function SearchPage() {
   const { playQueue } = usePlayer()
 
   React.useEffect(() => {
-    const id = setTimeout(() => setDebounced(query.trim()), 300)
+    // External catalogue providers rate-limit searches. Waiting until the user
+    // finishes typing avoids issuing requests for every intermediate prefix.
+    const id = setTimeout(() => setDebounced(query.trim()), 750)
     return () => clearTimeout(id)
   }, [query])
 
