@@ -43,11 +43,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [shuffle, setShuffle] = React.useState(false)
   const [expanded, setExpanded] = React.useState(false)
   const audioRef = React.useRef<HTMLAudioElement | null>(null)
-  const positionRef = React.useRef(0)
   const mediaControlsRef = React.useRef({
     next: () => {},
     prev: () => {},
-    seek: (_seconds: number) => {},
   })
 
   const currentTrack = queue[index] ?? null
@@ -169,12 +167,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   // them on every audio `timeupdate`. Safari can otherwise lose the previous /
   // next-track actions while the phone is locked.
   React.useEffect(() => {
-    positionRef.current = position
-  }, [position])
-
-  React.useEffect(() => {
-    mediaControlsRef.current = { next, prev, seek }
-  }, [next, prev, seek])
+    mediaControlsRef.current = { next, prev }
+  }, [next, prev])
 
   // Simulated playback clock (mock mode) — advances position while playing.
   // Timestamp-based so that if timers are throttled while the tab is
@@ -268,9 +262,6 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       ["pause", () => setIsPlaying(false)],
       ["previoustrack", () => mediaControlsRef.current.prev()],
       ["nexttrack", () => mediaControlsRef.current.next()],
-      ["seekbackward", (d) => mediaControlsRef.current.seek(positionRef.current - (d.seekOffset ?? 10))],
-      ["seekforward", (d) => mediaControlsRef.current.seek(positionRef.current + (d.seekOffset ?? 10))],
-      ["seekto", (d) => (d.seekTime != null ? mediaControlsRef.current.seek(d.seekTime) : undefined)],
       ["stop", () => setIsPlaying(false)],
     ]
     for (const [action, handler] of handlers) {
