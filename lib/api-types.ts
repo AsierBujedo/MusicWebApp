@@ -19,6 +19,7 @@ export interface CreateRequestInput {
 export interface CreateUserInput {
   username: string
   displayName: string
+  password: string
   email?: string
   role: "ADMIN" | "USER"
 }

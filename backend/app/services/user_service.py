@@ -6,7 +6,6 @@ from typing import List, Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
-from app.config import settings
 from app.core import security
 from app.models.user import User
 
@@ -30,7 +29,7 @@ def create_user(
     display_name: str,
     email: Optional[str],
     role: str,
-    password: Optional[str] = None,
+    password: str,
 ) -> User:
     normalized = username.strip().lower()
     if not normalized:
@@ -39,14 +38,13 @@ def create_user(
     if existing is not None:
         raise UserError("Username already taken")
 
-    raw_password = password or settings.default_user_password
     user = User(
         username=normalized,
         display_name=display_name.strip() or normalized,
         email=(email or "").strip() or None,
         role=role if role in {"ADMIN", "USER"} else "USER",
         active=True,
-        password_hash=security.hash_password(raw_password),
+        password_hash=security.hash_password(password),
     )
     db.add(user)
     db.commit()

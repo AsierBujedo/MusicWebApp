@@ -28,9 +28,7 @@ class CreateUserInput(CamelModel):
     display_name: str = Field(min_length=1, max_length=120)
     email: Optional[str] = Field(default=None, max_length=255)
     role: Role = "USER"
-    # Optional; the frontend does not send it, so we fall back to a configured
-    # default password. Accepting it keeps the door open for future UI changes.
-    password: Optional[str] = Field(default=None, min_length=6, max_length=256)
+    password: str = Field(min_length=6, max_length=256)
 
 
 class UpdateUserInput(CamelModel):

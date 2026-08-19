@@ -22,7 +22,7 @@ export default function AdminUsersPage() {
   const { user: me } = useAuth()
 
   const [creating, setCreating] = React.useState(false)
-  const [form, setForm] = React.useState({ username: "", displayName: "", email: "", role: "USER" as Role })
+  const [form, setForm] = React.useState({ username: "", displayName: "", email: "", password: "", role: "USER" as Role })
   const [saving, setSaving] = React.useState(false)
 
   const users = data ?? []
@@ -39,12 +39,13 @@ export default function AdminUsersPage() {
       await api.createUser({
         username: form.username.trim(),
         displayName: form.displayName.trim(),
+        password: form.password,
         email: form.email.trim() || undefined,
         role: form.role,
       })
-      toast("Usuario creado", "success")
+      toast("Usuario creado con su contraseña", "success")
       setCreating(false)
-      setForm({ username: "", displayName: "", email: "", role: "USER" })
+      setForm({ username: "", displayName: "", email: "", password: "", role: "USER" })
       refresh()
     } catch {
       toast("No se pudo crear el usuario", "error")
@@ -169,6 +170,17 @@ export default function AdminUsersPage() {
             <Input id="u-email" type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} placeholder="marta@home.local" />
           </div>
           <div className="space-y-1.5">
+            <label htmlFor="u-password" className="text-sm font-medium">Contraseña</label>
+            <Input
+              id="u-password"
+              type="password"
+              minLength={6}
+              value={form.password}
+              onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+              placeholder="Mínimo 6 caracteres"
+            />
+          </div>
+          <div className="space-y-1.5">
             <span className="text-sm font-medium">Rol</span>
             <div className="flex gap-2">
               {(["USER", "ADMIN"] as Role[]).map((r) => (
@@ -187,7 +199,7 @@ export default function AdminUsersPage() {
           </div>
           <div className="flex gap-3 pt-2">
             <Button variant="secondary" className="flex-1" onClick={() => setCreating(false)}>Cancelar</Button>
-            <Button className="flex-1" onClick={handleCreate} disabled={saving || !form.username.trim() || !form.displayName.trim()}>
+            <Button className="flex-1" onClick={handleCreate} disabled={saving || !form.username.trim() || !form.displayName.trim() || form.password.length < 6}>
               {saving ? "Creando…" : "Crear usuario"}
             </Button>
           </div>
