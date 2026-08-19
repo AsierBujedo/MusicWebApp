@@ -19,7 +19,7 @@ from app.services.integrations import (
     get_navidrome_client,
     get_slskd_client,
 )
-from app.services.serializers import request_out, user_out
+from app.services.serializers import request_out, track_out, user_out
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -45,6 +45,20 @@ def stats(_admin: User = Depends(get_current_admin), db: DbSession = Depends(get
         "downloads": downloads,
         "availableTracks": available_tracks,
     }
+
+
+# ------------------------------ Library ------------------------------
+
+
+@router.get("/tracks")
+def all_tracks(_admin: User = Depends(get_current_admin), db: DbSession = Depends(get_db)):
+    """Return the complete playable library for the administrator view."""
+    tracks = db.scalars(
+        select(Track)
+        .where(Track.status == "AVAILABLE")
+        .order_by(Track.artist.asc(), Track.album.asc(), Track.title.asc())
+    ).all()
+    return [track_out(track) for track in tracks]
 
 
 # ------------------------------- Users -------------------------------

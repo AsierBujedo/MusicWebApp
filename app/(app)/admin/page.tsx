@@ -24,7 +24,7 @@ export default function AdminDashboardPage() {
     { icon: Users, label: "Usuarios", value: stats?.users, href: "/admin/users" },
     { icon: Inbox, label: "Solicitudes", value: stats?.requests, href: "/admin/requests" },
     { icon: Download, label: "Descargando", value: stats?.downloads, href: "/admin/requests" },
-    { icon: Music, label: "Canciones", value: stats?.availableTracks, href: null },
+    { icon: Music, label: "Canciones", value: stats?.availableTracks, href: "/admin/tracks" },
   ]
 
   const activeRequests = (requests ?? []).filter((r) =>

@@ -170,6 +170,9 @@ class RealApi implements MusicApi {
   getStats() {
     return request<AdminStats>("/api/admin/stats")
   }
+  getAllTracks() {
+    return request<Track[]>("/api/admin/tracks")
+  }
   getUsers() {
     return request<User[]>("/api/admin/users")
   }

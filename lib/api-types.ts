@@ -89,6 +89,7 @@ export interface MusicApi {
 
   // admin
   getStats(): Promise<AdminStats>
+  getAllTracks(): Promise<Track[]>
   getUsers(): Promise<User[]>
   createUser(input: CreateUserInput): Promise<User>
   updateUser(id: string, patch: Partial<User>): Promise<User>

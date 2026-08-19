@@ -374,6 +374,14 @@ class MockApi implements MusicApi {
     }
   }
 
+  async getAllTracks(): Promise<Track[]> {
+    await delay(300)
+    return [...this.tracks.values()]
+      .filter((track) => track.status === "AVAILABLE")
+      .sort((a, b) => `${a.artist}\u0000${a.album ?? ""}\u0000${a.title}`.localeCompare(`${b.artist}\u0000${b.album ?? ""}\u0000${b.title}`))
+      .map((track) => ({ ...track }))
+  }
+
   async getUsers(): Promise<User[]> {
     await delay(300)
     return this.users.map((u) => ({ ...u }))
