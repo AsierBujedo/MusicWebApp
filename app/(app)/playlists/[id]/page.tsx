@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useParams, useRouter } from "next/navigation"
 import useSWR, { useSWRConfig } from "swr"
-import { Play, Shuffle, Trash2, ArrowLeft, Music } from "lucide-react"
+import { Play, Shuffle, Trash2, ArrowLeft, Music, Share2, ImagePlus } from "lucide-react"
 import type { Playlist, Track } from "@/types/api"
 import { api, ApiError } from "@/lib/api"
 import { usePlayer } from "@/components/providers/player-provider"
@@ -13,6 +13,7 @@ import { EmptyState } from "@/components/empty-state"
 import { CoverImage } from "@/components/cover-image"
 import { Button } from "@/components/ui/button"
 import { Modal } from "@/components/ui/modal"
+import { Input } from "@/components/ui/input"
 
 export default function PlaylistDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -27,6 +28,23 @@ export default function PlaylistDetailPage() {
   )
 
   const [confirmDelete, setConfirmDelete] = React.useState(false)
+  const [sharing, setSharing] = React.useState(false)
+  const [alias, setAlias] = React.useState("")
+
+  const addCollaborator = async () => {
+    if (!data || !alias.trim()) return
+    try {
+      await api.addPlaylistCollaborator(data.id, alias.trim())
+      setAlias("")
+      mutate(); globalMutate("playlists")
+      toast("Persona añadida", "success")
+    } catch { toast("No se pudo añadir a esa persona", "error") }
+  }
+  const uploadCover = async (file?: File) => {
+    if (!data || !file) return
+    try { await api.uploadPlaylistCover(data.id, file); mutate(); globalMutate("playlists") }
+    catch { toast("No se pudo subir la portada", "error") }
+  }
 
   if (error instanceof ApiError && error.status === 404) {
     return (
@@ -121,6 +139,13 @@ export default function PlaylistDetailPage() {
               <Button variant="ghost" size="icon" aria-label="Eliminar playlist" onClick={() => setConfirmDelete(true)}>
                 <Trash2 className="h-5 w-5" />
               </Button>
+              <Button variant="ghost" size="icon" aria-label="Compartir playlist" onClick={() => setSharing(true)}>
+                <Share2 className="h-5 w-5" />
+              </Button>
+              <label className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-md hover:bg-secondary" aria-label="Cambiar portada">
+                <ImagePlus className="h-5 w-5" />
+                <input className="hidden" type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => uploadCover(e.target.files?.[0])} />
+              </label>
             </div>
           </div>
         </div>
@@ -151,6 +176,13 @@ export default function PlaylistDetailPage() {
           <Button variant="danger" className="flex-1" onClick={handleDelete}>
             Eliminar
           </Button>
+        </div>
+      </Modal>
+      <Modal open={sharing} onClose={() => setSharing(false)} title="Compartir playlist">
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">Añade personas por su alias. Podrán editar la playlist.</p>
+          <div className="flex gap-2"><Input value={alias} onChange={(e) => setAlias(e.target.value)} placeholder="@marta" /><Button onClick={addCollaborator}>Añadir</Button></div>
+          {(data?.collaboratorUsernames ?? []).map((name) => <p key={name} className="text-sm">@{name}</p>)}
         </div>
       </Modal>
     </div>

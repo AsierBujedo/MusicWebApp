@@ -96,6 +96,9 @@ export interface Playlist {
   trackIds: string[]
   tracks?: Track[]
   createdAt: string
+  shared?: boolean
+  ownerUsername?: string
+  collaboratorUsernames?: string[]
 }
 
 export interface HistoryEntry {

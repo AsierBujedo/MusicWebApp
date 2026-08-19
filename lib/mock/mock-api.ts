@@ -260,7 +260,7 @@ class MockApi implements MusicApi {
     return this.hydrate(p)
   }
 
-  async createPlaylist(name: string, description?: string): Promise<Playlist> {
+  async createPlaylist(name: string, description?: string, shared = false): Promise<Playlist> {
     await delay(300)
     const p: Playlist = {
       id: `p${Date.now()}`,
@@ -269,6 +269,7 @@ class MockApi implements MusicApi {
       cover: cover(`playlist-${name}-${Date.now()}`),
       trackIds: [],
       createdAt: new Date().toISOString(),
+      shared,
     }
     this.playlists.unshift(p)
     return this.hydrate(p)
@@ -309,6 +310,15 @@ class MockApi implements MusicApi {
     if (!p) throw new ApiError("No encontramos esta playlist.", 404)
     p.trackIds = trackIds
     return this.hydrate(p)
+  }
+  async addPlaylistCollaborator(id: string, username: string): Promise<Playlist> {
+    const playlist = await this.getPlaylist(id)
+    playlist.shared = true
+    playlist.collaboratorUsernames = [...(playlist.collaboratorUsernames ?? []), username]
+    return playlist
+  }
+  async uploadPlaylistCover(id: string, _file: File): Promise<Playlist> {
+    return this.getPlaylist(id)
   }
 
   // ---- history ----

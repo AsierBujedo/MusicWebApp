@@ -10,7 +10,7 @@ from app.config import settings
 from app.models.base import utcnow
 from app.models.favorite import Favorite
 from app.models.history import History
-from app.models.playlist import Playlist, PlaylistTrack
+from app.models.playlist import Playlist, PlaylistCollaborator, PlaylistTrack
 from app.models.track import Track
 from app.models.user import User
 
@@ -24,7 +24,9 @@ class PlaylistError(Exception):
 def list_playlists(db: DbSession, user: User) -> List[Playlist]:
     stmt = (
         select(Playlist)
-        .where(Playlist.owner_user_id == user.id)
+        .outerjoin(PlaylistCollaborator, PlaylistCollaborator.playlist_id == Playlist.id)
+        .where((Playlist.owner_user_id == user.id) | (PlaylistCollaborator.user_id == user.id))
+        .distinct()
         .order_by(Playlist.created_at.desc())
     )
     return list(db.scalars(stmt).all())
@@ -34,7 +36,7 @@ def get_playlist(db: DbSession, playlist_id: str) -> Optional[Playlist]:
     return db.get(Playlist, playlist_id)
 
 
-def create_playlist(db: DbSession, *, user: User, name: str, description: Optional[str]) -> Playlist:
+def create_playlist(db: DbSession, *, user: User, name: str, description: Optional[str], shared: bool = False) -> Playlist:
     clean = (name or "").strip()
     if not clean:
         raise PlaylistError("Playlist name is required")
@@ -42,8 +44,28 @@ def create_playlist(db: DbSession, *, user: User, name: str, description: Option
         owner_user_id=user.id,
         name=clean,
         description=(description or "").strip() or None,
+        is_shared=shared,
     )
     db.add(pl)
+    db.commit()
+    db.refresh(pl)
+    return pl
+
+
+def can_edit(pl: Playlist, user: User) -> bool:
+    return pl.owner_user_id == user.id or any(row.user_id == user.id for row in pl.collaborators)
+
+
+def add_collaborator(db: DbSession, pl: Playlist, username: str) -> Playlist:
+    alias = username.strip().lower().removeprefix("@")
+    user = db.scalar(select(User).where(User.username == alias))
+    if user is None:
+        raise PlaylistError("Usuario no encontrado")
+    if user.id == pl.owner_user_id:
+        raise PlaylistError("La persona propietaria ya tiene acceso")
+    if not any(row.user_id == user.id for row in pl.collaborators):
+        db.add(PlaylistCollaborator(playlist_id=pl.id, user_id=user.id))
+    pl.is_shared = True
     db.commit()
     db.refresh(pl)
     return pl

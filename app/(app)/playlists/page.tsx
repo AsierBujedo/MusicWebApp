@@ -26,6 +26,7 @@ export default function PlaylistsPage() {
   const [creating, setCreating] = React.useState(false)
   const [name, setName] = React.useState("")
   const [description, setDescription] = React.useState("")
+  const [shared, setShared] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
 
   const playlists = data ?? []
@@ -34,12 +35,13 @@ export default function PlaylistsPage() {
     if (!name.trim()) return
     setSaving(true)
     try {
-      const pl = await api.createPlaylist(name.trim(), description.trim() || undefined)
+      const pl = await api.createPlaylist(name.trim(), description.trim() || undefined, shared)
       toast("Playlist creada", "success")
       mutate("playlists")
       setCreating(false)
       setName("")
       setDescription("")
+      setShared(false)
       router.push(`/playlists/${pl.id}`)
     } catch {
       toast("No se pudo crear la playlist", "error")
@@ -115,6 +117,10 @@ export default function PlaylistsPage() {
               }}
             />
           </div>
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            <input type="checkbox" checked={shared} onChange={(e) => setShared(e.target.checked)} />
+            Playlist compartida
+          </label>
           <div className="space-y-1.5">
             <label htmlFor="pl-desc" className="text-sm font-medium">
               Descripción <span className="text-muted-foreground">(opcional)</span>

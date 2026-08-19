@@ -12,6 +12,7 @@ from app.schemas.track import TrackOut
 class CreatePlaylistInput(CamelModel):
     name: str = Field(min_length=1, max_length=200)
     description: Optional[str] = Field(default=None, max_length=1000)
+    shared: bool = False
 
 
 class UpdatePlaylistInput(CamelModel):
@@ -27,6 +28,10 @@ class ReorderInput(CamelModel):
     track_ids: List[str] = Field(default_factory=list)
 
 
+class AddCollaboratorInput(CamelModel):
+    username: str = Field(min_length=1, max_length=64)
+
+
 class PlaylistOut(CamelModel):
     id: str
     name: str
@@ -34,4 +39,7 @@ class PlaylistOut(CamelModel):
     cover: Optional[str] = None
     track_ids: List[str] = []
     tracks: Optional[List[TrackOut]] = None
+    shared: bool = False
+    owner_username: Optional[str] = None
+    collaborator_usernames: List[str] = []
     created_at: datetime

@@ -97,8 +97,8 @@ class RealApi implements MusicApi {
   getPlaylist(id: string) {
     return request<Playlist>(`/api/playlists/${id}`)
   }
-  createPlaylist(name: string, description?: string) {
-    return request<Playlist>("/api/playlists", { method: "POST", body: JSON.stringify({ name, description }) })
+  createPlaylist(name: string, description?: string, shared = false) {
+    return request<Playlist>("/api/playlists", { method: "POST", body: JSON.stringify({ name, description, shared }) })
   }
   updatePlaylist(id: string, patch: Partial<Pick<Playlist, "name" | "description">>) {
     return request<Playlist>(`/api/playlists/${id}`, { method: "PATCH", body: JSON.stringify(patch) })
@@ -114,6 +114,16 @@ class RealApi implements MusicApi {
   }
   reorderPlaylist(id: string, trackIds: string[]) {
     return request<Playlist>(`/api/playlists/${id}/reorder`, { method: "POST", body: JSON.stringify({ trackIds }) })
+  }
+  addPlaylistCollaborator(id: string, username: string) {
+    return request<Playlist>(`/api/playlists/${id}/collaborators`, { method: "POST", body: JSON.stringify({ username }) })
+  }
+  async uploadPlaylistCover(id: string, file: File) {
+    const form = new FormData()
+    form.append("file", file)
+    const res = await fetch(`${BASE}/api/playlists/${id}/cover`, { method: "POST", credentials: "include", body: form })
+    if (!res.ok) throw new ApiError("No se pudo subir la portada", res.status)
+    return res.json() as Promise<Playlist>
   }
 
   getHistory() {

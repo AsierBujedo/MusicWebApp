@@ -61,12 +61,14 @@ export interface MusicApi {
   // playlists
   getPlaylists(): Promise<Playlist[]>
   getPlaylist(id: string): Promise<Playlist>
-  createPlaylist(name: string, description?: string): Promise<Playlist>
+  createPlaylist(name: string, description?: string, shared?: boolean): Promise<Playlist>
   updatePlaylist(id: string, patch: Partial<Pick<Playlist, "name" | "description">>): Promise<Playlist>
   deletePlaylist(id: string): Promise<void>
   addTrackToPlaylist(id: string, trackId: string): Promise<Playlist>
   removeTrackFromPlaylist(id: string, trackId: string): Promise<Playlist>
   reorderPlaylist(id: string, trackIds: string[]): Promise<Playlist>
+  addPlaylistCollaborator(id: string, username: string): Promise<Playlist>
+  uploadPlaylistCover(id: string, file: File): Promise<Playlist>
 
   // history
   getHistory(): Promise<HistoryEntry[]>

@@ -7,10 +7,11 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Optional
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
 from app.models.base import iso
-from app.models.playlist import Playlist
+from app.models.playlist import Playlist, PlaylistCollaborator
 from app.models.track import Track
 from app.models.user import User
 
@@ -99,10 +100,20 @@ def playlist_out(db: DbSession, pl: Playlist) -> Dict[str, Any]:
             "id": pl.id,
             "name": pl.name,
             "description": pl.description,
-            "cover": pl.cover,
+            "cover": pl.cover or f"/api/playlists/{pl.id}/cover",
             "trackIds": track_ids,
             "tracks": tracks,
             "createdAt": iso(pl.created_at),
+            "shared": pl.is_shared,
+            "ownerUsername": pl.owner.username if pl.owner else None,
+            "collaboratorUsernames": [
+                user.username
+                for user in db.scalars(
+                    select(User)
+                    .join(PlaylistCollaborator, PlaylistCollaborator.user_id == User.id)
+                    .where(PlaylistCollaborator.playlist_id == pl.id)
+                ).all()
+            ],
         }
     )
 
