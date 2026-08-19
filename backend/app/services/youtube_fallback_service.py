@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import re
 import shutil
 import subprocess
@@ -16,6 +17,7 @@ from app.models.track import Track
 from app.services import manual_import_service
 
 _VIDEO_ID = re.compile(r"^[A-Za-z0-9_-]{11}$")
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -42,6 +44,7 @@ async def candidates(track: Track) -> list[YouTubeCandidate]:
     except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError) as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="YouTube search is unavailable") from exc
     if result.returncode:
+        logger.warning("yt-dlp YouTube search failed: %s", (result.stderr or result.stdout)[-2000:])
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="YouTube search failed")
     found: list[YouTubeCandidate] = []
     for item in payload.get("entries", []):
@@ -78,6 +81,11 @@ async def download_selected(*, video_id: str, track: Track) -> Path:
         except (OSError, subprocess.TimeoutExpired) as exc:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="YouTube download is unavailable") from exc
         if result.returncode:
+            logger.warning(
+                "yt-dlp YouTube download failed for video=%s: %s",
+                video_id,
+                (result.stderr or result.stdout)[-3000:],
+            )
             raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="YouTube could not download the selected audio")
         source = next(iter(workdir.glob("audio.mp3")), None)
         if source is None:
