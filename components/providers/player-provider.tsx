@@ -130,7 +130,22 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     setIsPlaying((p) => !p)
   }, [currentTrack])
 
-  const seek = React.useCallback((seconds: number) => setPosition(Math.max(0, Math.min(seconds, duration))), [duration])
+  const seek = React.useCallback((seconds: number) => {
+    const nextPosition = Math.max(0, Math.min(seconds, duration))
+
+    // Updating only React state makes the thumb move briefly, but the audio
+    // element continues at its previous timestamp and immediately overwrites it
+    // on the next `timeupdate` event.
+    if (!MOCK_MODE && audioRef.current) {
+      try {
+        audioRef.current.currentTime = nextPosition
+      } catch {
+        // The stream may still be loading. Keep the UI responsive; the next
+        // audio event will reconcile its position once it becomes seekable.
+      }
+    }
+    setPosition(nextPosition)
+  }, [duration])
 
   const setVolume = React.useCallback((v: number) => {
     setVolumeState(v)
