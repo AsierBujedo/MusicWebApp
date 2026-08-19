@@ -1,4 +1,3 @@
-import { Music } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export function CoverImage({
@@ -12,16 +11,24 @@ export function CoverImage({
   className?: string
   rounded?: string
 }) {
+  // The demo artwork route is deterministic: every missing cover gets a
+  // distinctive visual identity without flashing to a different image on
+  // every render or reload.
+  const fallback = `/api/cover?seed=${encodeURIComponent(alt)}`
   return (
     <div className={cn("relative shrink-0 overflow-hidden bg-secondary", rounded, className)}>
-      {src ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={src || "/placeholder.svg"} alt={alt} loading="lazy" className="h-full w-full object-cover" />
-      ) : (
-        <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-          <Music className="h-1/3 w-1/3" aria-hidden="true" />
-        </div>
-      )}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src || fallback}
+        alt={alt}
+        loading="lazy"
+        className="h-full w-full object-cover"
+        onError={(event) => {
+          // Covers from external catalogues can disappear or be rate-limited.
+          // Replace them once with the local generated artwork.
+          if (event.currentTarget.src !== new URL(fallback, window.location.origin).href) event.currentTarget.src = fallback
+        }}
+      />
     </div>
   )
 }
