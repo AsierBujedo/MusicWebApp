@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from pathlib import Path
 from typing import NamedTuple
@@ -17,6 +18,7 @@ from app.models.track import Track
 
 _ALLOWED_EXTENSIONS = {".mp3", ".flac"}
 _MAX_COVER_BYTES = 8 * 1024 * 1024
+logger = logging.getLogger(__name__)
 
 
 class Cover(NamedTuple):
@@ -135,6 +137,7 @@ async def import_audio(*, upload: UploadFile, track: Track) -> Path:
         raise
     except Exception as exc:
         temporary.unlink(missing_ok=True)
+        logger.warning("Manual audio import could not be retagged: %s", upload.filename, exc_info=True)
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="The audio file could not be read or retagged") from exc
     finally:
         await upload.close()
