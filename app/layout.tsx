@@ -9,14 +9,19 @@ const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono"
 const sora = Sora({ subsets: ["latin"], weight: ["500", "600", "700"], variable: "--font-sora" })
 
 export const metadata: Metadata = {
-  title: "Home Music",
+  title: "Resonar",
   description: "Busca, escucha y solicita música. Una biblioteca privada para toda la familia.",
   manifest: "/manifest.webmanifest",
-  applicationName: "Home Music",
+  applicationName: "Resonar",
+  icons: {
+    icon: "/icon.png",
+    shortcut: "/favicon.ico",
+    apple: "/apple-icon.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Home Music",
+    title: "Resonar",
   },
   formatDetection: { telephone: false },
 }
