@@ -43,6 +43,12 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [shuffle, setShuffle] = React.useState(false)
   const [expanded, setExpanded] = React.useState(false)
   const audioRef = React.useRef<HTMLAudioElement | null>(null)
+  const positionRef = React.useRef(0)
+  const mediaControlsRef = React.useRef({
+    next: () => {},
+    prev: () => {},
+    seek: (_seconds: number) => {},
+  })
 
   const currentTrack = queue[index] ?? null
   const duration = currentTrack?.duration ?? 0
@@ -159,6 +165,17 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   )
   const toggleShuffle = React.useCallback(() => setShuffle((s) => !s), [])
 
+  // Keep lock-screen handlers current without unregistering and registering
+  // them on every audio `timeupdate`. Safari can otherwise lose the previous /
+  // next-track actions while the phone is locked.
+  React.useEffect(() => {
+    positionRef.current = position
+  }, [position])
+
+  React.useEffect(() => {
+    mediaControlsRef.current = { next, prev, seek }
+  }, [next, prev, seek])
+
   // Simulated playback clock (mock mode) — advances position while playing.
   // Timestamp-based so that if timers are throttled while the tab is
   // backgrounded or the device is asleep, the position catches up on resume.
@@ -249,11 +266,11 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     const handlers: [MediaSessionAction, MediaSessionActionHandler | null][] = [
       ["play", () => setIsPlaying(true)],
       ["pause", () => setIsPlaying(false)],
-      ["previoustrack", () => prev()],
-      ["nexttrack", () => next()],
-      ["seekbackward", (d) => seek(position - (d.seekOffset ?? 10))],
-      ["seekforward", (d) => seek(position + (d.seekOffset ?? 10))],
-      ["seekto", (d) => (d.seekTime != null ? seek(d.seekTime) : undefined)],
+      ["previoustrack", () => mediaControlsRef.current.prev()],
+      ["nexttrack", () => mediaControlsRef.current.next()],
+      ["seekbackward", (d) => mediaControlsRef.current.seek(positionRef.current - (d.seekOffset ?? 10))],
+      ["seekforward", (d) => mediaControlsRef.current.seek(positionRef.current + (d.seekOffset ?? 10))],
+      ["seekto", (d) => (d.seekTime != null ? mediaControlsRef.current.seek(d.seekTime) : undefined)],
       ["stop", () => setIsPlaying(false)],
     ]
     for (const [action, handler] of handlers) {
@@ -272,7 +289,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         }
       }
     }
-  }, [prev, next, seek, position])
+  }, [])
 
   // Keep the lock-screen play/pause state in sync.
   React.useEffect(() => {
