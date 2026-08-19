@@ -26,6 +26,21 @@ class Cover(NamedTuple):
     mime: str
 
 
+async def _cover_art_archive(client: httpx.AsyncClient, mbid: str, *, release_group: bool) -> Cover | None:
+    try:
+        response = await client.get(
+            f"https://coverartarchive.org/{'release-group' if release_group else 'release'}/{mbid}/front-250",
+            headers={"User-Agent": "Resonar/1.0"},
+        )
+        response.raise_for_status()
+        if len(response.content) > _MAX_COVER_BYTES:
+            return None
+        mime = response.headers.get("content-type", "image/jpeg").split(";", 1)[0]
+        return Cover(response.content, mime) if mime.startswith("image/") else None
+    except httpx.HTTPError:
+        return None
+
+
 def _safe_component(value: str, fallback: str) -> str:
     clean = re.sub(r"[^\w .()\-]", "_", (value or "").strip(), flags=re.UNICODE)
     clean = re.sub(r"\s+", " ", clean).strip(" .")
@@ -34,35 +49,69 @@ def _safe_component(value: str, fallback: str) -> str:
 
 async def _resonar_cover(track: Track) -> Cover | None:
     """Fetch only Resonar's known Cover Art Archive source, never file tags."""
-    mbid = None
-    release_group = True
+    candidates: list[tuple[str, bool]] = []
     if track.cover and track.cover.startswith("/api/covers/release-group/"):
-        mbid = track.cover.rsplit("/", 1)[-1]
+        candidates.append((track.cover.rsplit("/", 1)[-1], True))
     elif track.provider == "droppedneedle" and track.metadata_json:
         try:
             mbid = json.loads(track.metadata_json).get("release_mbid")
-            release_group = False
+            if mbid:
+                candidates.append((str(mbid), False))
         except (TypeError, ValueError):
             pass
-    if not mbid and track.album_id and track.provider == "droppedneedle":
-        mbid = track.album_id
-    if not mbid:
-        return None
+    if track.album_id and track.provider == "droppedneedle":
+        candidates.append((track.album_id, True))
     try:
         async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
-            response = await client.get(
-                f"https://coverartarchive.org/{'release-group' if release_group else 'release'}/{mbid}/front-250",
-                headers={"User-Agent": "Resonar/1.0"},
-            )
-            response.raise_for_status()
-            if len(response.content) > _MAX_COVER_BYTES:
-                return None
-            mime = response.headers.get("content-type", "image/jpeg").split(";", 1)[0]
-            if not mime.startswith("image/"):
-                return None
-            return Cover(response.content, mime)
+            # Prefer the exact release/group already selected by Resonar.
+            for mbid, is_group in candidates:
+                cover = await _cover_art_archive(client, mbid, release_group=is_group)
+                if cover:
+                    return cover
+
+            # Native DroppedNeedle search results can contain only a recording
+            # MBID. Resolve one release here so manual imports still receive a
+            # Resonar-sourced cover rather than retaining uploaded artwork.
+            if track.provider == "droppedneedle" and track.provider_id:
+                response = await client.get(
+                    f"https://musicbrainz.org/ws/2/recording/{track.provider_id}",
+                    params={"inc": "releases+release-groups", "fmt": "json"},
+                    headers={"User-Agent": "Resonar/1.0"},
+                )
+                response.raise_for_status()
+                releases = response.json().get("releases", [])
+                if isinstance(releases, list):
+                    for release in releases:
+                        if not isinstance(release, dict):
+                            continue
+                        release_id = release.get("id")
+                        if release_id:
+                            cover = await _cover_art_archive(client, str(release_id), release_group=False)
+                            if cover:
+                                return cover
     except httpx.HTTPError:
-        return None
+        pass
+    logger.info("No Resonar cover available for manual import track=%s", track.id)
+    return None
+
+
+def embedded_cover(path: Path) -> Cover | None:
+    """Return the artwork written by Resonar, if any, for the cover proxy."""
+    try:
+        if path.suffix.lower() == ".flac":
+            pictures = FLAC(path).pictures
+            if pictures:
+                picture = pictures[0]
+                return Cover(picture.data, picture.mime or "image/jpeg")
+        else:
+            tags = MP3(path).tags
+            pictures = tags.getall("APIC") if tags else []
+            if pictures:
+                picture = pictures[0]
+                return Cover(picture.data, picture.mime or "image/jpeg")
+    except Exception:
+        logger.warning("Could not read embedded manual cover: %s", path, exc_info=True)
+    return None
 
 
 def _write_tags(path: Path, track: Track, cover: Cover | None, *, audio_extension: str) -> None:

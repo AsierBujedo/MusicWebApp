@@ -103,10 +103,12 @@ async def upload_failed_request(
     track.provider = "manual"
     track.provider_id = None
     track.file_reference = str(destination)
+    track.cover = f"/api/covers/{track.id}"
     track.status = "AVAILABLE"
     track.available = True
     track.progress = None
     track.updated_at = utcnow()
+    req.cover = track.cover
     try:
         req = request_service.transition(db, req, "AVAILABLE", error_message=None)
     except request_service.RequestError as exc:

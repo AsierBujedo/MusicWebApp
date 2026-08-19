@@ -2,17 +2,19 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from starlette.background import BackgroundTask
 from sqlalchemy.orm import Session as DbSession
 
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
-from app.services import library_service
+from app.config import settings
+from app.services import library_service, manual_import_service
 from app.services.integrations import get_navidrome_client
 
 router = APIRouter(prefix="/api", tags=["covers"])
@@ -61,7 +63,17 @@ async def cover(
     if track is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cover not found")
 
-    if track.provider in {"droppedneedle", "manual"}:
+    if track.provider == "manual":
+        source = Path(track.file_reference or "").resolve()
+        root = Path(settings.music_library_path).resolve()
+        if not source.is_file() or not source.is_relative_to(root):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cover not found")
+        cover = manual_import_service.embedded_cover(source)
+        if not cover:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cover not found")
+        return Response(content=cover.data, media_type=cover.mime, headers={"Cache-Control": "public, max-age=86400"})
+
+    if track.provider == "droppedneedle":
         try:
             release_mbid = json.loads(track.metadata_json or "{}").get("release_mbid")
         except (TypeError, ValueError):
