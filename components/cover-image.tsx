@@ -1,3 +1,6 @@
+"use client"
+
+import * as React from "react"
 import { cn } from "@/lib/utils"
 
 export function CoverImage({
@@ -11,24 +14,28 @@ export function CoverImage({
   className?: string
   rounded?: string
 }) {
-  // The demo artwork route is deterministic: every missing cover gets a
-  // distinctive visual identity without flashing to a different image on
-  // every render or reload.
+  // The generated cover is always rendered first. It gives every item a stable
+  // identity while an upstream image is still loading (or has disappeared).
   const fallback = `/api/cover?seed=${encodeURIComponent(alt)}`
+  const [loaded, setLoaded] = React.useState(!src)
+
+  React.useEffect(() => setLoaded(!src), [src])
+
   return (
     <div className={cn("relative shrink-0 overflow-hidden bg-secondary", rounded, className)}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={src || fallback}
-        alt={alt}
-        loading="lazy"
-        className="h-full w-full object-cover"
-        onError={(event) => {
-          // Covers from external catalogues can disappear or be rate-limited.
-          // Replace them once with the local generated artwork.
-          if (event.currentTarget.src !== new URL(fallback, window.location.origin).href) event.currentTarget.src = fallback
-        }}
-      />
+      <img src={fallback} alt={src ? "" : alt} aria-hidden={src ? true : undefined} className="h-full w-full object-cover" />
+      {src && (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src={src}
+          alt={alt}
+          loading="lazy"
+          className={cn("absolute inset-0 h-full w-full object-cover transition-opacity duration-300", loaded ? "opacity-100" : "opacity-0")}
+          onLoad={() => setLoaded(true)}
+          onError={() => setLoaded(false)}
+        />
+      )}
     </div>
   )
 }
