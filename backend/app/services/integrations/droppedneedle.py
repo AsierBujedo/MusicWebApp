@@ -16,6 +16,8 @@ from app.services.integrations.base import ExternalTrack, HealthResult
 from app.services.integrations.mocks import MockDroppedNeedleClient
 
 logger = logging.getLogger(__name__)
+_MUSICBRAINZ_API = "https://musicbrainz.org/ws/2"
+_MUSICBRAINZ_USER_AGENT = "Resonar/1.0 (self-hosted music catalogue fallback)"
 
 
 class RealDroppedNeedleClient:
@@ -90,7 +92,7 @@ class RealDroppedNeedleClient:
             raw_payload = response.json()
         except Exception:
             logger.warning("DroppedNeedle search failed", exc_info=True)
-            return []
+            return await self._search_musicbrainz(query, limit)
 
         payload = raw_payload.get("data", raw_payload) if isinstance(raw_payload, dict) else raw_payload
         if isinstance(payload, list):
@@ -100,7 +102,7 @@ class RealDroppedNeedleClient:
         else:
             results = []
         if not isinstance(results, list):
-            return []
+            results = []
         tracks: List[ExternalTrack] = []
         for result in results[:limit]:
             if not isinstance(result, dict):
@@ -139,6 +141,63 @@ class RealDroppedNeedleClient:
                         else "PENDING" if item.get("requested", False)
                         else "REQUESTABLE"
                     ),
+                )
+            )
+        # /search is a faceted endpoint in current DroppedNeedle releases and
+        # can legitimately return artists/albums without a recording list.  If
+        # its upstream MusicBrainz deadline expires, query the same public
+        # catalogue server-side with a longer timeout.  The browser still sees
+        # only Resonar; acquisition continues to be delegated to DroppedNeedle.
+        return tracks or await self._search_musicbrainz(query, limit)
+
+    async def _search_musicbrainz(self, query: str, limit: int) -> List[ExternalTrack]:
+        try:
+            response = await self._client.get(
+                f"{_MUSICBRAINZ_API}/recording/",
+                params={"query": query, "fmt": "json", "limit": limit},
+                headers={"User-Agent": _MUSICBRAINZ_USER_AGENT},
+                timeout=httpx.Timeout(20.0),
+            )
+            response.raise_for_status()
+            recordings = response.json().get("recordings", [])
+        except (httpx.HTTPError, ValueError):
+            logger.warning("MusicBrainz fallback search failed", exc_info=True)
+            return []
+
+        tracks: List[ExternalTrack] = []
+        for recording in recordings:
+            if not isinstance(recording, dict) or not recording.get("id"):
+                continue
+            artist_parts = []
+            for credit in recording.get("artist-credit", []):
+                if isinstance(credit, dict):
+                    nested_artist = credit.get("artist")
+                    nested_name = nested_artist.get("name") if isinstance(nested_artist, dict) else ""
+                    artist_parts.append(str(credit.get("name") or nested_name or ""))
+                    artist_parts.append(str(credit.get("joinphrase") or ""))
+            releases = recording.get("releases", [])
+            release = releases[0] if isinstance(releases, list) and releases and isinstance(releases[0], dict) else {}
+            length = recording.get("length")
+            try:
+                duration = int(int(length) / 1000) if length is not None else None
+            except (TypeError, ValueError):
+                duration = None
+            date = release.get("date") or ""
+            try:
+                year = int(str(date)[:4]) if date else None
+            except ValueError:
+                year = None
+            tracks.append(
+                ExternalTrack(
+                    provider="droppedneedle",
+                    provider_id=str(recording["id"]),
+                    title=str(recording.get("title") or ""),
+                    artist="".join(artist_parts),
+                    album=release.get("title"),
+                    year=year,
+                    duration=duration,
+                    available=False,
+                    status="REQUESTABLE",
                 )
             )
         return tracks
