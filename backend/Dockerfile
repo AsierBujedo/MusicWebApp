@@ -7,6 +7,12 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
+# yt-dlp's YouTube extractor requires a JavaScript runtime, while ffmpeg
+# performs the safe audio-only conversion before Resonar retags the file.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install dependencies first for better layer caching
 COPY requirements.txt ./
 RUN pip install -r requirements.txt

@@ -1,6 +1,6 @@
 "use client"
 
-import { RotateCw, Trash2, Play, Upload } from "lucide-react"
+import { RotateCw, Trash2, Play, Upload, Youtube } from "lucide-react"
 import { useRef, useState } from "react"
 import type { MusicRequest } from "@/types/api"
 import { api } from "@/lib/api"
@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button"
 import { formatRelativeDate } from "@/lib/utils"
 import { useSWRConfig } from "swr"
 import { useAuth } from "@/components/providers/auth-provider"
+import { Modal } from "@/components/ui/modal"
+import type { YouTubeCandidate } from "@/lib/api-types"
 
 export function RequestCard({ request, showRequester }: { request: MusicRequest; showRequester?: boolean }) {
   const { play } = usePlayer()
@@ -20,6 +22,10 @@ export function RequestCard({ request, showRequester }: { request: MusicRequest;
   const { user, isAdmin } = useAuth()
   const fileInput = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
+  const [youtubeOpen, setYoutubeOpen] = useState(false)
+  const [youtubeLoading, setYoutubeLoading] = useState(false)
+  const [youtubeDownloading, setYoutubeDownloading] = useState<string | null>(null)
+  const [youtubeCandidates, setYoutubeCandidates] = useState<YouTubeCandidate[]>([])
 
   const isDownloading = request.status === "DOWNLOADING"
   const isDone = request.status === "AVAILABLE"
@@ -77,6 +83,34 @@ export function RequestCard({ request, showRequester }: { request: MusicRequest;
 
   const canUpload = request.status === "FAILED" && (isAdmin || request.requestedBy === user?.id)
 
+  const openYouTubeFallback = async () => {
+    setYoutubeOpen(true)
+    setYoutubeLoading(true)
+    setYoutubeCandidates([])
+    try {
+      setYoutubeCandidates(await api.getYouTubeCandidates(request.id))
+    } catch {
+      toast("No se pudieron buscar alternativas en YouTube.", "error")
+      setYoutubeOpen(false)
+    } finally {
+      setYoutubeLoading(false)
+    }
+  }
+
+  const selectYouTubeCandidate = async (candidate: YouTubeCandidate) => {
+    setYoutubeDownloading(candidate.videoId)
+    try {
+      await api.downloadRequestFromYouTube(request.id, candidate.videoId)
+      toast("Audio descargado y etiquetado por Resonar", "success")
+      setYoutubeOpen(false)
+      refresh()
+    } catch {
+      toast("No se pudo descargar el audio seleccionado.", "error")
+    } finally {
+      setYoutubeDownloading(null)
+    }
+  }
+
   return (
     <div className="rounded-2xl border border-border bg-card p-3">
       <div className="flex items-center gap-3">
@@ -115,6 +149,11 @@ export function RequestCard({ request, showRequester }: { request: MusicRequest;
               </Button>
             </>
           )}
+          {canUpload && (
+            <Button size="icon-sm" variant="secondary" onClick={() => void openYouTubeFallback()} aria-label="Último recurso: buscar en YouTube" title="Último recurso: buscar en YouTube">
+              <Youtube className="h-4 w-4" />
+            </Button>
+          )}
           <Button size="icon-sm" variant="ghost" onClick={handleDelete} aria-label="Eliminar solicitud">
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -144,6 +183,39 @@ export function RequestCard({ request, showRequester }: { request: MusicRequest;
       {showRequester && request.requestedByName && (
         <p className="mt-2 text-xs text-muted-foreground">Solicitado por {request.requestedByName}</p>
       )}
+
+      <Modal
+        open={youtubeOpen}
+        onClose={() => !youtubeDownloading && setYoutubeOpen(false)}
+        title="Último recurso: YouTube"
+        description={`Elige una coincidencia para “${request.title}”. Se descargará solo la opción seleccionada y Resonar sustituirá sus metadatos y portada.`}
+        className="max-w-xl"
+      >
+        {youtubeLoading ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">Buscando alternativas…</p>
+        ) : youtubeCandidates.length ? (
+          <div className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
+            {youtubeCandidates.map((candidate) => (
+              <button
+                key={candidate.videoId}
+                type="button"
+                disabled={Boolean(youtubeDownloading)}
+                onClick={() => void selectYouTubeCandidate(candidate)}
+                className="flex w-full items-center gap-3 rounded-xl border border-border p-3 text-left transition-colors hover:bg-secondary disabled:opacity-60"
+              >
+                <Youtube className="h-5 w-5 shrink-0 text-destructive" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium">{candidate.title}</span>
+                  <span className="block truncate text-xs text-muted-foreground">{candidate.channel}{candidate.duration ? ` · ${Math.floor(candidate.duration / 60)}:${String(candidate.duration % 60).padStart(2, "0")}` : ""}</span>
+                </span>
+                {youtubeDownloading === candidate.videoId && <span className="text-xs text-muted-foreground">Descargando…</span>}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="py-6 text-center text-sm text-muted-foreground">No se encontraron coincidencias.</p>
+        )}
+      </Modal>
     </div>
   )
 }

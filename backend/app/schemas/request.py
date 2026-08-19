@@ -18,6 +18,17 @@ class CreateRequestInput(CamelModel):
     track_id: str = Field(min_length=1, max_length=64)
 
 
+class YouTubeCandidateOut(CamelModel):
+    video_id: str
+    title: str
+    channel: str
+    duration: Optional[int] = None
+
+
+class YouTubeDownloadInput(CamelModel):
+    video_id: str = Field(min_length=11, max_length=11)
+
+
 class MusicRequestOut(CamelModel):
     id: str
     type: RequestType

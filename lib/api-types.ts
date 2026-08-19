@@ -13,6 +13,13 @@ import type {
   User,
 } from "@/types/api"
 
+export interface YouTubeCandidate {
+  videoId: string
+  title: string
+  channel: string
+  duration?: number
+}
+
 export interface CreateRequestInput {
   type: "track" | "album" | "artist"
   trackId: string
@@ -56,6 +63,8 @@ export interface MusicApi {
   deleteRequest(id: string): Promise<void>
   retryRequest(id: string): Promise<MusicRequest>
   uploadRequestAudio(id: string, file: File): Promise<MusicRequest>
+  getYouTubeCandidates(id: string): Promise<YouTubeCandidate[]>
+  downloadRequestFromYouTube(id: string, videoId: string): Promise<MusicRequest>
 
   // favorites
   getFavorites(): Promise<Track[]>

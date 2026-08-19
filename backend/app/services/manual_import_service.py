@@ -190,3 +190,30 @@ async def import_audio(*, upload: UploadFile, track: Track) -> Path:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="The audio file could not be read or retagged") from exc
     finally:
         await upload.close()
+
+
+async def import_path(*, source: Path, track: Track) -> Path:
+    """Retag an internally downloaded MP3/FLAC using the normal manual path."""
+    extension = source.suffix.lower()
+    if extension not in _ALLOWED_EXTENSIONS or not source.is_file():
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Downloaded audio is invalid")
+    library_root = Path(settings.music_library_path).resolve()
+    if not library_root.is_dir():
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Music library mount is unavailable")
+    target_dir = library_root / _safe_component(track.artist, "Unknown Artist") / _safe_component(track.album or "Singles", "Singles")
+    target_dir.mkdir(parents=True, exist_ok=True)
+    destination = target_dir / f"{_safe_component(track.title, 'Track')}{extension}"
+    if destination.exists():
+        destination = target_dir / f"{_safe_component(track.title, 'Track')} (manual){extension}"
+    temporary = destination.with_suffix(destination.suffix + ".uploading")
+    try:
+        with source.open("rb") as input_file, temporary.open("wb") as output_file:
+            while chunk := input_file.read(1024 * 1024):
+                output_file.write(chunk)
+        _write_tags(temporary, track, await _resonar_cover(track), audio_extension=extension)
+        temporary.replace(destination)
+        return destination
+    except Exception as exc:
+        temporary.unlink(missing_ok=True)
+        logger.warning("Downloaded audio could not be retagged: %s", source, exc_info=True)
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Downloaded audio could not be retagged") from exc

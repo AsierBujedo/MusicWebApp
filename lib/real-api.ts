@@ -9,7 +9,7 @@ import type {
   Track,
   User,
 } from "@/types/api"
-import { ApiError, type CreateRequestInput, type CreateUserInput, type MusicApi } from "@/lib/api-types"
+import { ApiError, type CreateRequestInput, type CreateUserInput, type MusicApi, type YouTubeCandidate } from "@/lib/api-types"
 
 // Base URL for the backend. In production the app is served behind the same
 // origin (`/api/*` -> backend), so an empty base resolves to relative paths.
@@ -90,6 +90,12 @@ class RealApi implements MusicApi {
       throw new ApiError("No se pudo importar el archivo de audio.", res.status)
     }
     return res.json() as Promise<MusicRequest>
+  }
+  getYouTubeCandidates(id: string) {
+    return request<YouTubeCandidate[]>(`/api/requests/${id}/youtube-candidates`)
+  }
+  downloadRequestFromYouTube(id: string, videoId: string) {
+    return request<MusicRequest>(`/api/requests/${id}/youtube-download`, { method: "POST", body: JSON.stringify({ videoId }) })
   }
 
   getFavorites() {

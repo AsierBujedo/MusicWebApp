@@ -8,8 +8,8 @@ from app.core.permissions import ensure_owner_or_admin
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
-from app.schemas.request import CreateRequestInput, MusicRequestOut
-from app.services import event_service, library_service, manual_import_service, request_service
+from app.schemas.request import CreateRequestInput, MusicRequestOut, YouTubeCandidateOut, YouTubeDownloadInput
+from app.services import event_service, library_service, manual_import_service, request_service, youtube_fallback_service
 from app.models.base import utcnow
 from app.services.serializers import request_out
 
@@ -113,6 +113,54 @@ async def upload_failed_request(
         req = request_service.transition(db, req, "AVAILABLE", error_message=None)
     except request_service.RequestError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    await event_service.emit_track_updated(
+        track_id=track.id, status=track.status, progress=None, audience_user_ids={req.requested_by}
+    )
+    await event_service.emit_request_updated(request_id=req.id, status=req.status, progress=req.progress, owner_user_id=req.requested_by)
+    return request_out(req, requested_by_name=user.display_name)
+
+
+def _failed_request_track(request_id: str, user: User, db: DbSession):
+    req = request_service.get_request(db, request_id)
+    if req is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Request not found")
+    ensure_owner_or_admin(user, req.requested_by)
+    if req.status != "FAILED":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="YouTube fallback is only available for failed requests")
+    track = library_service.get_track(db, req.track_id)
+    if track is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Track not found")
+    return req, track
+
+
+@router.get("/{request_id}/youtube-candidates", response_model=list[YouTubeCandidateOut])
+async def youtube_candidates(request_id: str, user: User = Depends(get_current_user), db: DbSession = Depends(get_db)):
+    _req, track = _failed_request_track(request_id, user, db)
+    return [
+        YouTubeCandidateOut(video_id=item.video_id, title=item.title, channel=item.channel, duration=item.duration)
+        for item in await youtube_fallback_service.candidates(track)
+    ]
+
+
+@router.post("/{request_id}/youtube-download", response_model=MusicRequestOut)
+async def youtube_download(
+    request_id: str,
+    payload: YouTubeDownloadInput,
+    user: User = Depends(get_current_user),
+    db: DbSession = Depends(get_db),
+):
+    req, track = _failed_request_track(request_id, user, db)
+    destination = await youtube_fallback_service.download_selected(video_id=payload.video_id, track=track)
+    track.provider = "manual"
+    track.provider_id = None
+    track.file_reference = str(destination)
+    track.cover = f"/api/covers/{track.id}"
+    track.status = "AVAILABLE"
+    track.available = True
+    track.progress = None
+    track.updated_at = utcnow()
+    req.cover = track.cover
+    req = request_service.transition(db, req, "AVAILABLE", error_message=None)
     await event_service.emit_track_updated(
         track_id=track.id, status=track.status, progress=None, audience_user_ids={req.requested_by}
     )

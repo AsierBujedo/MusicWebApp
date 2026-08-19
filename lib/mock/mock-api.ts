@@ -10,7 +10,7 @@ import type {
   Track,
   User,
 } from "@/types/api"
-import { ApiError, type CreateRequestInput, type CreateUserInput, type MusicApi } from "@/lib/api-types"
+import { ApiError, type CreateRequestInput, type CreateUserInput, type MusicApi, type YouTubeCandidate } from "@/lib/api-types"
 import {
   cover,
   MOCK_ALBUMS,
@@ -208,6 +208,18 @@ class MockApi implements MusicApi {
     }
     this.emit({ type: "request.updated", requestId: id, status: req.status })
     return { ...req }
+  }
+
+  async getYouTubeCandidates(_id: string): Promise<YouTubeCandidate[]> {
+    await delay(300)
+    return [
+      { videoId: "dQw4w9WgXcQ", title: "Resultado oficial", channel: "Canal oficial", duration: 213 },
+      { videoId: "3JZ_D3ELwOQ", title: "Resultado alternativo", channel: "Music channel", duration: 218 },
+    ]
+  }
+
+  async downloadRequestFromYouTube(id: string, _videoId: string): Promise<MusicRequest> {
+    return this.uploadRequestAudio(id, new File([], "audio.mp3", { type: "audio/mpeg" }))
   }
 
   // Walk a request through its lifecycle emitting realtime events.
