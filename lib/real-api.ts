@@ -118,6 +118,9 @@ class RealApi implements MusicApi {
   addPlaylistCollaborator(id: string, username: string) {
     return request<Playlist>(`/api/playlists/${id}/collaborators`, { method: "POST", body: JSON.stringify({ username }) })
   }
+  removePlaylistCollaborator(id: string, username: string) {
+    return request<Playlist>(`/api/playlists/${id}/collaborators/${encodeURIComponent(username)}`, { method: "DELETE" })
+  }
   async uploadPlaylistCover(id: string, file: File) {
     const form = new FormData()
     form.append("file", file)

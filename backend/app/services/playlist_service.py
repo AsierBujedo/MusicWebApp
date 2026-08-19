@@ -71,6 +71,21 @@ def add_collaborator(db: DbSession, pl: Playlist, username: str) -> Playlist:
     return pl
 
 
+def remove_collaborator(db: DbSession, pl: Playlist, username: str) -> Playlist:
+    alias = username.strip().lower().removeprefix("@")
+    user = db.scalar(select(User).where(User.username == alias))
+    if user is None:
+        raise PlaylistError("Usuario no encontrado")
+    db.execute(
+        delete(PlaylistCollaborator).where(
+            PlaylistCollaborator.playlist_id == pl.id, PlaylistCollaborator.user_id == user.id
+        )
+    )
+    db.commit()
+    db.refresh(pl)
+    return pl
+
+
 def update_playlist(
     db: DbSession, pl: Playlist, *, name: Optional[str], description: Optional[str]
 ) -> Playlist:

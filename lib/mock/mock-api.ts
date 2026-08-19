@@ -317,6 +317,11 @@ class MockApi implements MusicApi {
     playlist.collaboratorUsernames = [...(playlist.collaboratorUsernames ?? []), username]
     return playlist
   }
+  async removePlaylistCollaborator(id: string, username: string): Promise<Playlist> {
+    const playlist = await this.getPlaylist(id)
+    playlist.collaboratorUsernames = (playlist.collaboratorUsernames ?? []).filter((name) => name !== username)
+    return playlist
+  }
   async uploadPlaylistCover(id: string, _file: File): Promise<Playlist> {
     return this.getPlaylist(id)
   }

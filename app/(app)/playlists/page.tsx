@@ -87,7 +87,7 @@ export default function PlaylistsPage() {
             <MediaCard
               key={pl.id}
               title={pl.name}
-              subtitle={`${pl.trackIds.length} canciones`}
+              subtitle={`by ${pl.ownerUsername ?? "ti"} · ${pl.trackIds.length} canciones`}
               cover={pl.cover}
               href={`/playlists/${pl.id}`}
               onPlay={

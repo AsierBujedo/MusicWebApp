@@ -74,6 +74,8 @@ def update_playlist(
 @router.delete("/{playlist_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_playlist(playlist_id: str, user: User = Depends(get_current_user), db: DbSession = Depends(get_db)):
     pl = _load_editable(db, playlist_id, user)
+    if pl.owner_user_id != user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Solo la persona propietaria puede eliminar la playlist")
     playlist_service.delete_playlist(db, pl)
     return None
 
@@ -110,6 +112,19 @@ def add_collaborator(playlist_id: str, payload: AddCollaboratorInput, user: User
     pl = _load_editable(db, playlist_id, user)
     try:
         pl = playlist_service.add_collaborator(db, pl, payload.username)
+    except playlist_service.PlaylistError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    return playlist_out(db, pl)
+
+
+@router.delete("/{playlist_id}/collaborators/{username}", response_model=PlaylistOut)
+def remove_collaborator(playlist_id: str, username: str, user: User = Depends(get_current_user), db: DbSession = Depends(get_db)):
+    pl = _load_editable(db, playlist_id, user)
+    # Only the owner can revoke access from other people.
+    if pl.owner_user_id != user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Solo la persona propietaria puede eliminar colaboradores")
+    try:
+        pl = playlist_service.remove_collaborator(db, pl, username)
     except playlist_service.PlaylistError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     return playlist_out(db, pl)

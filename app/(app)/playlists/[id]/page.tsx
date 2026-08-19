@@ -3,11 +3,12 @@
 import * as React from "react"
 import { useParams, useRouter } from "next/navigation"
 import useSWR, { useSWRConfig } from "swr"
-import { Play, Shuffle, Trash2, ArrowLeft, Music, Share2, ImagePlus } from "lucide-react"
+import { Play, Shuffle, Trash2, ArrowLeft, Music, Share2, ImagePlus, X, Users } from "lucide-react"
 import type { Playlist, Track } from "@/types/api"
 import { api, ApiError } from "@/lib/api"
 import { usePlayer } from "@/components/providers/player-provider"
 import { useToast } from "@/components/providers/toast-provider"
+import { useAuth } from "@/components/providers/auth-provider"
 import { TrackList, TrackListSkeleton } from "@/components/track-list"
 import { EmptyState } from "@/components/empty-state"
 import { CoverImage } from "@/components/cover-image"
@@ -20,6 +21,7 @@ export default function PlaylistDetailPage() {
   const router = useRouter()
   const { playQueue, toggleShuffle } = usePlayer()
   const { toast } = useToast()
+  const { user: me } = useAuth()
   const { mutate: globalMutate } = useSWRConfig()
 
   const { data, error, isLoading, mutate } = useSWR<Playlist>(
@@ -45,6 +47,11 @@ export default function PlaylistDetailPage() {
     try { await api.uploadPlaylistCover(data.id, file); mutate(); globalMutate("playlists") }
     catch { toast("No se pudo subir la portada", "error") }
   }
+  const removeCollaborator = async (username: string) => {
+    if (!data) return
+    try { await api.removePlaylistCollaborator(data.id, username); mutate(); globalMutate("playlists") }
+    catch { toast("No se pudo eliminar a esa persona", "error") }
+  }
 
   if (error instanceof ApiError && error.status === 404) {
     return (
@@ -63,6 +70,7 @@ export default function PlaylistDetailPage() {
 
   const tracks = data?.tracks ?? []
   const playable = tracks.filter((t) => t.status === "AVAILABLE")
+  const isOwner = !!data && data.ownerUsername === me?.username
 
   const handleRemove = async (track: Track) => {
     if (!data) return
@@ -115,6 +123,7 @@ export default function PlaylistDetailPage() {
           <div className="flex-1">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Playlist</p>
             <h1 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl text-balance">{data.name}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">by {data.ownerUsername ?? "ti"}</p>
             {data.description && <p className="mt-2 text-sm text-muted-foreground text-pretty">{data.description}</p>}
             <p className="mt-2 text-sm text-muted-foreground">{tracks.length} canciones</p>
 
@@ -136,16 +145,18 @@ export default function PlaylistDetailPage() {
               >
                 <Shuffle className="h-5 w-5" />
               </Button>
-              <Button variant="ghost" size="icon" aria-label="Eliminar playlist" onClick={() => setConfirmDelete(true)}>
-                <Trash2 className="h-5 w-5" />
-              </Button>
-              <Button variant="ghost" size="icon" aria-label="Compartir playlist" onClick={() => setSharing(true)}>
-                <Share2 className="h-5 w-5" />
-              </Button>
-              <label className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-md hover:bg-secondary" aria-label="Cambiar portada">
-                <ImagePlus className="h-5 w-5" />
-                <input className="hidden" type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => uploadCover(e.target.files?.[0])} />
-              </label>
+              {isOwner && <>
+                <Button variant="ghost" size="icon" aria-label="Eliminar playlist" onClick={() => setConfirmDelete(true)}>
+                  <Trash2 className="h-5 w-5" />
+                </Button>
+                <Button variant="ghost" size="icon" aria-label="Compartir playlist" onClick={() => setSharing(true)}>
+                  <Share2 className="h-5 w-5" />
+                </Button>
+                <label className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-md hover:bg-secondary" aria-label="Cambiar portada">
+                  <ImagePlus className="h-5 w-5" />
+                  <input className="hidden" type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => uploadCover(e.target.files?.[0])} />
+                </label>
+              </>}
             </div>
           </div>
         </div>
@@ -178,11 +189,36 @@ export default function PlaylistDetailPage() {
           </Button>
         </div>
       </Modal>
-      <Modal open={sharing} onClose={() => setSharing(false)} title="Compartir playlist">
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">Añade personas por su alias. Podrán editar la playlist.</p>
-          <div className="flex gap-2"><Input value={alias} onChange={(e) => setAlias(e.target.value)} placeholder="@marta" /><Button onClick={addCollaborator}>Añadir</Button></div>
-          {(data?.collaboratorUsernames ?? []).map((name) => <p key={name} className="text-sm">@{name}</p>)}
+      <Modal open={sharing} onClose={() => setSharing(false)} title="Compartir playlist" className="max-w-xl">
+        <div className="space-y-5">
+          <div className="rounded-2xl border border-border bg-secondary/40 p-4">
+            <div className="flex gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary"><Users className="h-5 w-5" /></div>
+              <div>
+                <p className="text-sm font-medium">Edición compartida</p>
+                <p className="mt-0.5 text-sm leading-5 text-muted-foreground">Añade personas por su alias. Podrán añadir y quitar canciones de esta playlist.</p>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="playlist-collaborator" className="text-sm font-medium">Añadir persona</label>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Input id="playlist-collaborator" value={alias} onChange={(e) => setAlias(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addCollaborator()} placeholder="@marta" className="min-w-0 flex-1" />
+              <Button onClick={addCollaborator} className="w-full shrink-0 sm:w-auto">Añadir</Button>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Personas con acceso <span className="text-muted-foreground">({data?.collaboratorUsernames?.length ?? 0})</span></p>
+            {(data?.collaboratorUsernames?.length ?? 0) === 0 ? (
+              <p className="rounded-xl border border-dashed border-border px-4 py-5 text-center text-sm text-muted-foreground">Aún no has añadido a nadie.</p>
+            ) : (
+              <div className="max-h-52 space-y-1 overflow-y-auto rounded-xl border border-border p-1.5">
+                {(data?.collaboratorUsernames ?? []).map((name) => (
+                  <div key={name} className="flex min-w-0 items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm hover:bg-secondary/70"><span className="truncate font-medium">@{name}</span>{isOwner && <Button variant="ghost" size="icon-sm" className="shrink-0 text-muted-foreground hover:text-status-failed" aria-label={`Eliminar a ${name}`} onClick={() => removeCollaborator(name)}><X className="h-4 w-4" /></Button>}</div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </Modal>
     </div>
