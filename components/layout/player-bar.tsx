@@ -124,7 +124,7 @@ export function PlayerBar() {
   return (
     <>
       {/* Mini player */}
-      <div className="fixed inset-x-0 bottom-[57px] z-30 border-t border-border bg-card/95 backdrop-blur md:bottom-0 md:left-64">
+      <div className="mobile-player-offset fixed inset-x-0 z-40 border-t border-border bg-card/95 backdrop-blur md:left-64">
         <div className="mx-auto flex max-w-6xl items-center gap-3 px-3 py-2.5 sm:px-6">
           <button
             onClick={() => setExpanded(true)}

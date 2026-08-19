@@ -23,7 +23,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   if (!user) return <LoginScreen />
 
-  // Bottom padding reserves space for the mobile nav (57px) and the player bar when active.
+  // Reserve the fixed mobile navigation and, when present, the player bar.
+  // Both heights include the iPhone safe-area inset through CSS variables.
   const hasPlayer = Boolean(currentTrack)
 
   return (
@@ -32,8 +33,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar />
         <main
-          className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6"
-          style={{ paddingBottom: hasPlayer ? "170px" : "80px" }}
+          className={`app-content mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6${hasPlayer ? " app-content-with-player" : ""}`}
         >
           {children}
         </main>

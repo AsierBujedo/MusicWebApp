@@ -3,6 +3,8 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
+  --mobile-nav-height: calc(3.5rem + env(safe-area-inset-bottom));
+  --mobile-player-height: 5.25rem;
   --background: oklch(0.98 0.005 260);
   --foreground: oklch(0.18 0.02 270);
   --card: oklch(1 0 0);
@@ -120,6 +122,28 @@
 }
 
 @layer utilities {
+  .mobile-player-offset {
+    bottom: var(--mobile-nav-height);
+    min-height: var(--mobile-player-height);
+  }
+  .app-content {
+    padding-bottom: calc(var(--mobile-nav-height) + 1.5rem);
+  }
+  .app-content-with-player {
+    padding-bottom: calc(var(--mobile-nav-height) + var(--mobile-player-height) + 1.5rem);
+  }
+  @media (min-width: 768px) {
+    .mobile-player-offset {
+      bottom: 0;
+      min-height: 0;
+    }
+    .app-content {
+      padding-bottom: 1.5rem;
+    }
+    .app-content-with-player {
+      padding-bottom: 6.5rem;
+    }
+  }
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
