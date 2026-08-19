@@ -16,7 +16,7 @@ export function Sidebar() {
   return (
     <aside className="hidden md:flex md:w-64 md:flex-col md:shrink-0 border-r border-border bg-card">
       <div className="flex h-16 items-center gap-2 px-6">
-        <img src="/icon.png" alt="" className="h-9 w-9 rounded-xl" />
+        <img src="/icon.png" alt="" className="h-9 w-9 rounded-full" />
         <span className="text-lg font-semibold tracking-tight">Resonar</span>
       </div>
 

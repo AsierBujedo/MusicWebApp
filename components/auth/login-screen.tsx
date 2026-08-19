@@ -31,7 +31,7 @@ export function LoginScreen() {
     <div className="flex min-h-dvh items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center text-center">
-          <img src="/icon.png" alt="Resonar" className="mb-4 h-14 w-14 rounded-2xl" />
+          <img src="/icon.png" alt="Resonar" className="mb-4 h-14 w-14 rounded-full" />
           <h1 className="text-2xl font-semibold tracking-tight">Bienvenido a Resonar</h1>
           <p className="mt-1 text-sm text-muted-foreground text-balance">
             Tu música, siempre disponible. Inicia sesión para continuar.

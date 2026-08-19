@@ -18,7 +18,7 @@ export function TopBar() {
     <header className="app-header-height sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-background/80 px-4 backdrop-blur sm:px-6">
       {/* Mobile brand */}
       <Link href="/" className="flex items-center gap-2 md:hidden">
-        <img src="/icon.png" alt="" className="h-8 w-8 rounded-lg" />
+        <img src="/icon.png" alt="" className="h-8 w-8 rounded-full" />
         <span className="font-semibold">Resonar</span>
       </Link>
 
