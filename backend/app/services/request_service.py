@@ -34,7 +34,7 @@ VALID_TRANSITIONS = {
     "SEARCHING": {"DOWNLOADING", "FAILED"},
     "DOWNLOADING": {"AVAILABLE", "FAILED"},
     "AVAILABLE": set(),
-    "REJECTED": {"PENDING"},  # retry
+    "REJECTED": {"PENDING", "AVAILABLE"},  # retry or owner/admin fallback
     "FAILED": {"PENDING", "APPROVED", "AVAILABLE"},  # retry or manual import
 }
 

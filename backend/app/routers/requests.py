@@ -93,8 +93,8 @@ async def upload_failed_request(
     if req is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Request not found")
     ensure_owner_or_admin(user, req.requested_by)
-    if req.status != "FAILED":
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only failed requests can be imported manually")
+    if req.status not in {"FAILED", "REJECTED"}:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only unsuccessful requests can be imported manually")
     track = library_service.get_track(db, req.track_id)
     if track is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Track not found")
@@ -125,8 +125,8 @@ def _failed_request_track(request_id: str, user: User, db: DbSession):
     if req is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Request not found")
     ensure_owner_or_admin(user, req.requested_by)
-    if req.status != "FAILED":
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="YouTube fallback is only available for failed requests")
+    if req.status not in {"FAILED", "REJECTED"}:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="YouTube fallback is only available for unsuccessful requests")
     track = library_service.get_track(db, req.track_id)
     if track is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Track not found")

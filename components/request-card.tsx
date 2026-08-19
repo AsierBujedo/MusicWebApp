@@ -81,7 +81,7 @@ export function RequestCard({ request, showRequester }: { request: MusicRequest;
     }
   }
 
-  const canUpload = request.status === "FAILED" && (isAdmin || request.requestedBy === user?.id)
+  const canUpload = isFailed && (isAdmin || request.requestedBy === user?.id)
 
   const openYouTubeFallback = async () => {
     setYoutubeOpen(true)
@@ -171,6 +171,19 @@ export function RequestCard({ request, showRequester }: { request: MusicRequest;
 
       {isFailed && request.errorMessage && (
         <p className="mt-2 text-xs text-destructive">{request.errorMessage}</p>
+      )}
+
+      {canUpload && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="mt-3"
+          onClick={() => void openYouTubeFallback()}
+          disabled={youtubeLoading || Boolean(youtubeDownloading)}
+        >
+          <Youtube className="h-4 w-4 text-destructive" />
+          Último recurso: buscar en YouTube
+        </Button>
       )}
 
       {scheduledSoulseekRetry && (
