@@ -63,12 +63,11 @@ async def _resonar_cover(track: Track) -> Cover | None:
         return None
 
 
-def _write_tags(path: Path, track: Track, cover: Cover | None) -> None:
+def _write_tags(path: Path, track: Track, cover: Cover | None, *, audio_extension: str) -> None:
     title = track.title
     artist = track.artist
     album = track.album or "Singles"
-    extension = path.suffix.lower()
-    if extension == ".flac":
+    if audio_extension == ".flac":
         audio = FLAC(path)
         audio.clear()
         audio["title"] = title
@@ -126,7 +125,9 @@ async def import_audio(*, upload: UploadFile, track: Track) -> Path:
                 if total > settings.manual_upload_max_bytes:
                     raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Audio file is too large")
                 output.write(chunk)
-        _write_tags(temporary, track, await _resonar_cover(track))
+        # The temporary filename ends in `.uploading`; pass the original
+        # extension explicitly so a FLAC is never parsed as an MP3.
+        _write_tags(temporary, track, await _resonar_cover(track), audio_extension=extension)
         temporary.replace(destination)
         return destination
     except HTTPException:
