@@ -21,6 +21,8 @@ export default function SearchPage() {
   const [query, setQuery] = React.useState("")
   const [debounced, setDebounced] = React.useState("")
   const [tab, setTab] = React.useState<Tab>("all")
+  const [showAllArtists, setShowAllArtists] = React.useState(false)
+  const [showAllAlbums, setShowAllAlbums] = React.useState(false)
   const { playQueue } = usePlayer()
 
   React.useEffect(() => {
@@ -29,6 +31,11 @@ export default function SearchPage() {
     const id = setTimeout(() => setDebounced(query.trim()), 750)
     return () => clearTimeout(id)
   }, [query])
+
+  React.useEffect(() => {
+    setShowAllArtists(false)
+    setShowAllAlbums(false)
+  }, [debounced])
 
   const { data, isLoading } = useSWR<SearchResults>(
     debounced ? `search:${debounced}` : null,
@@ -108,20 +115,20 @@ export default function SearchPage() {
       ) : (
         <div className="space-y-8">
           {showArtists && (data?.artists.length ?? 0) > 0 && (
-            <Section title="Artistas">
-              <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 lg:grid-cols-6">
+            <Section title="Artistas" action={data!.artists.length > 1 ? <button onClick={() => setShowAllArtists((value) => !value)} className="shrink-0 text-sm font-medium text-primary hover:underline">{showAllArtists ? "Mostrar menos" : "Mostrar más"}</button> : undefined}>
+              <div className={cn("gap-4", showAllArtists ? "grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6" : "flex overflow-hidden")}>
                 {data!.artists.map((a) => (
-                  <MediaCard key={a.id} title={a.name} subtitle={`${a.albumCount ?? 0} álbumes`} cover={a.image} rounded href={`/artists/${a.id}?name=${encodeURIComponent(a.name)}`} />
+                  <div key={a.id} className={cn("shrink-0", !showAllArtists && "w-28 sm:w-32 lg:w-36")}><MediaCard title={a.name} subtitle={`${a.albumCount ?? 0} álbumes`} cover={a.image} rounded href={`/artists/${a.id}?name=${encodeURIComponent(a.name)}`} /></div>
                 ))}
               </div>
             </Section>
           )}
 
           {showAlbums && (data?.albums.length ?? 0) > 0 && (
-            <Section title="Álbumes">
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+            <Section title="Álbumes" action={data!.albums.length > 1 ? <button onClick={() => setShowAllAlbums((value) => !value)} className="shrink-0 text-sm font-medium text-primary hover:underline">{showAllAlbums ? "Mostrar menos" : "Mostrar más"}</button> : undefined}>
+              <div className={cn("gap-4", showAllAlbums ? "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5" : "flex overflow-hidden")}>
                 {data!.albums.map((al) => (
-                  <div key={al.id} className="relative">
+                  <div key={al.id} className={cn("relative shrink-0", !showAllAlbums && "w-32 sm:w-36 lg:w-40")}>
                     <MediaCard title={al.title} subtitle={`${al.artist} · ${al.year ?? ""}`} cover={al.cover} href={`/albums/${al.id}?artist=${encodeURIComponent(al.artist)}&title=${encodeURIComponent(al.title)}`} />
                     <div className="absolute left-2 top-2">
                       <StatusBadge status={al.status} />

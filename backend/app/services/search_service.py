@@ -25,7 +25,7 @@ def _album_out(a: ExternalAlbum) -> Dict[str, Any]:
         "title": a.title,
         "artist": a.artist,
         "artistId": a.artist_id,
-        "cover": a.cover,
+        "cover": a.cover or (f"/api/covers/release-group/{a.provider_id}" if a.provider == "droppedneedle" else None),
         "year": a.year,
         "trackCount": a.track_count,
         "status": "AVAILABLE" if a.available else "REQUESTABLE",
@@ -86,7 +86,7 @@ async def search(db: DbSession, query: str) -> Dict[str, Any]:
     seen_albums = {(a.title.casefold(), a.artist.casefold()) for a in albums}
     for ext in merged:
         if ext.artist and ext.artist.casefold() not in seen_artists:
-            artists.append(ExternalArtist(provider=ext.provider, provider_id=ext.artist_id or ext.artist, name=ext.artist))
+            artists.append(ExternalArtist(provider=ext.provider, provider_id=ext.artist_id or ext.artist, name=ext.artist, image=ext.cover or (f"/api/covers/release-group/{ext.album_id}" if ext.provider == "droppedneedle" and ext.album_id else None)))
             seen_artists.add(ext.artist.casefold())
         if ext.album and (ext.album.casefold(), ext.artist.casefold()) not in seen_albums:
             albums.append(ExternalAlbum(provider=ext.provider, provider_id=ext.album_id or ext.album, title=ext.album, artist=ext.artist, artist_id=ext.artist_id, cover=ext.cover, year=ext.year, available=ext.available))

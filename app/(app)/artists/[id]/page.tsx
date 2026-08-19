@@ -2,6 +2,7 @@
 
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import useSWR from "swr"
+import * as React from "react"
 import { ArrowLeft, Download, Disc3 } from "lucide-react"
 import type { ArtistCatalog } from "@/types/api"
 import { api, ApiError } from "@/lib/api"
@@ -17,6 +18,7 @@ export default function ArtistPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
+  const [showAllReleases, setShowAllReleases] = React.useState(false)
   const name = searchParams.get("name") ?? undefined
   const { data, error, isLoading } = useSWR<ArtistCatalog>(id ? `artist:${id}:${name ?? ""}` : null, () => api.getArtistCatalog(id, name))
 
@@ -42,8 +44,8 @@ export default function ArtistPage() {
         <Button className="mt-5 gap-2" onClick={requestAll} disabled={!releases.some((release) => !release.inLibrary)}><Download className="h-4 w-4" />Solicitar discografía</Button>
       </div>
     </div>
-    <Section title="Álbumes y EPs" subtitle="Los singles, directos y recopilatorios se excluyen de la descarga completa.">
-      {releases.length ? <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">{releases.map((release) => <MediaCard key={release.id} title={release.title} subtitle={`${release.year ?? ""}${release.inLibrary ? " · En biblioteca" : release.requested ? " · Solicitado" : ""}`} cover={release.cover} href={`/albums/${release.id}`} />)}</div> : <EmptyState icon={Disc3} title="Sin álbumes" description="No se han encontrado álbumes o EPs para este artista." />}
+    <Section title="Álbumes y EPs" subtitle="Los singles, directos y recopilatorios se excluyen de la descarga completa." action={releases.length > 1 ? <button onClick={() => setShowAllReleases((value) => !value)} className="shrink-0 text-sm font-medium text-primary hover:underline">{showAllReleases ? "Mostrar menos" : "Mostrar más"}</button> : undefined}>
+      {releases.length ? <div className={showAllReleases ? "grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5" : "flex gap-4 overflow-hidden"}>{releases.map((release) => <div key={release.id} className={showAllReleases ? "" : "w-32 shrink-0 sm:w-36 lg:w-40"}><MediaCard title={release.title} subtitle={`${release.year ?? ""}${release.inLibrary ? " · En biblioteca" : release.requested ? " · Solicitado" : ""}`} cover={release.cover} href={`/albums/${release.id}`} /></div>)}</div> : <EmptyState icon={Disc3} title="Sin álbumes" description="No se han encontrado álbumes o EPs para este artista." />}
     </Section>
   </div>
 }
