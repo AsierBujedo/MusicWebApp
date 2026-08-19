@@ -223,11 +223,21 @@ class RealDroppedNeedleClient:
         return tracks
 
     async def request(self, *, type: str, title: str, artist: str, provider_id: Optional[str]) -> dict:
-        body = {"type": type, "title": title, "artist": artist}
-        if provider_id:
-            body["musicbrainz_id"] = provider_id
         try:
-            response = await self._request("POST", "/api/v1/requests/new", json=body)
+            if type == "track" and provider_id:
+                # Current DroppedNeedle API: a searched recording is requested
+                # by its MusicBrainz recording ID.  The route requires a JSON
+                # object but has no mandatory fields in its public schema.
+                response = await self._request(
+                    "POST", f"/api/v1/tracks/{provider_id}/request", json={}
+                )
+            else:
+                # Backwards-compatible fallback for request types without a
+                # recording MBID (albums/artists and older DN deployments).
+                body = {"type": type, "title": title, "artist": artist}
+                if provider_id:
+                    body["musicbrainz_id"] = provider_id
+                response = await self._request("POST", "/api/v1/requests/new", json=body)
             data = self._payload(response)
             external_id = data.get("task_id") or data.get("taskId") or data.get("id") or data.get("request_id")
             return {"accepted": bool(external_id), "external_id": str(external_id) if external_id else None, "raw": data}
