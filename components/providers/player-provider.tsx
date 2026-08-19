@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import type { Track } from "@/types/api"
+import type { HistoryEntry, Track } from "@/types/api"
 import { api, MOCK_MODE } from "@/lib/api"
 
 type RepeatMode = "off" | "all" | "one"
@@ -72,7 +72,33 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   const playQueue = React.useCallback((tracks: Track[], startIndex = 0) => start(tracks, startIndex), [start])
 
+  const playRandomFromHistory = React.useCallback(async () => {
+    try {
+      const history = await api.getHistory()
+      const seen = new Set<string>()
+      const candidates = history
+        .map((entry: HistoryEntry) => entry.track)
+        .filter((track) => track.status === "AVAILABLE" && !seen.has(track.id) && (seen.add(track.id), true))
+      if (candidates.length === 0) return
+      const withoutCurrent = candidates.filter((track) => track.id !== currentTrack?.id)
+      const pool = withoutCurrent.length > 0 ? withoutCurrent : candidates
+      const selected = pool[Math.floor(Math.random() * pool.length)]
+      if (selected) start([selected], 0)
+    } catch {
+      // Lock-screen controls must remain harmless if history is temporarily
+      // unavailable (for example during a network transition on iOS).
+    }
+  }, [currentTrack?.id, start])
+
   const next = React.useCallback(() => {
+    if (queue.length <= 1 && repeat !== "all") {
+      void playRandomFromHistory()
+      return
+    }
+    if (!shuffle && repeat !== "all" && index >= queue.length - 1) {
+      void playRandomFromHistory()
+      return
+    }
     setIndex((i) => {
       if (queue.length === 0) return i
       if (shuffle) return Math.floor(Math.random() * queue.length)
@@ -80,16 +106,24 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       return repeat === "all" ? 0 : i
     })
     setPosition(0)
-  }, [queue.length, shuffle, repeat])
+  }, [queue.length, index, shuffle, repeat, playRandomFromHistory])
 
   const prev = React.useCallback(() => {
     if (position > 3) {
       setPosition(0)
       return
     }
+    if (queue.length <= 1) {
+      void playRandomFromHistory()
+      return
+    }
+    if (index === 0) {
+      void playRandomFromHistory()
+      return
+    }
     setIndex((i) => (i > 0 ? i - 1 : i))
     setPosition(0)
-  }, [position])
+  }, [position, queue.length, index, playRandomFromHistory])
 
   const togglePlay = React.useCallback(() => {
     if (!currentTrack) return
