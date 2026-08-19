@@ -3,6 +3,25 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 
+const FALLBACK_COVERS = [
+  "/fallback-covers/abstract-01.webp",
+  "/fallback-covers/abstract-02.webp",
+  "/fallback-covers/abstract-03.webp",
+  "/fallback-covers/abstract-04.webp",
+  "/fallback-covers/abstract-05.webp",
+  "/fallback-covers/abstract-06.webp",
+  "/fallback-covers/abstract-07.webp",
+  "/fallback-covers/abstract-08.webp",
+  "/fallback-covers/abstract-09.webp",
+  "/fallback-covers/abstract-10.webp",
+]
+
+function fallbackFor(seed: string) {
+  let value = 0
+  for (let index = 0; index < seed.length; index += 1) value = (value * 31 + seed.charCodeAt(index)) >>> 0
+  return FALLBACK_COVERS[value % FALLBACK_COVERS.length]
+}
+
 export function CoverImage({
   src,
   alt,
@@ -16,7 +35,7 @@ export function CoverImage({
 }) {
   // The generated cover is always rendered first. It gives every item a stable
   // identity while an upstream image is still loading (or has disappeared).
-  const fallback = `/api/cover?seed=${encodeURIComponent(alt)}`
+  const fallback = fallbackFor(alt)
   const [loaded, setLoaded] = React.useState(!src)
 
   React.useEffect(() => setLoaded(!src), [src])
