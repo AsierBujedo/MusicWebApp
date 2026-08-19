@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Music, Shield } from "lucide-react"
+import { Shield } from "lucide-react"
 import { MAIN_NAV, ADMIN_NAV } from "@/lib/nav"
 import { useAuth } from "@/components/providers/auth-provider"
 import { cn } from "@/lib/utils"
@@ -16,9 +16,7 @@ export function Sidebar() {
   return (
     <aside className="hidden md:flex md:w-64 md:flex-col md:shrink-0 border-r border-border bg-card">
       <div className="flex h-16 items-center gap-2 px-6">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-          <Music className="h-5 w-5" />
-        </span>
+        <img src="/icon.png" alt="" className="h-9 w-9 rounded-xl" />
         <span className="text-lg font-semibold tracking-tight">Resonar</span>
       </div>
 

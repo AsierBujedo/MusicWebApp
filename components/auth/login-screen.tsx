@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Music, Loader2 } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import { useAuth } from "@/components/providers/auth-provider"
 import { ApiError } from "@/lib/api"
 import { Button } from "@/components/ui/button"
@@ -31,9 +31,7 @@ export function LoginScreen() {
     <div className="flex min-h-dvh items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center text-center">
-          <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
-            <Music className="h-7 w-7" />
-          </span>
+          <img src="/icon.png" alt="Resonar" className="mb-4 h-14 w-14 rounded-2xl" />
           <h1 className="text-2xl font-semibold tracking-tight">Bienvenido a Resonar</h1>
           <p className="mt-1 text-sm text-muted-foreground text-balance">
             Tu música, siempre disponible. Inicia sesión para continuar.
