@@ -79,14 +79,6 @@ export function LoginScreen() {
             {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Iniciar sesión"}
           </Button>
         </form>
-
-        <div className="mt-6 rounded-xl border border-border bg-secondary/40 p-3 text-xs text-muted-foreground">
-          <p className="font-medium text-foreground">Demo</p>
-          <p className="mt-1">
-            Usuario <code className="text-foreground">demo</code> · Admin <code className="text-foreground">admin</code> ·
-            cualquier contraseña.
-          </p>
-        </div>
       </div>
     </div>
   )
