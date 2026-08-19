@@ -226,10 +226,13 @@ class RealDroppedNeedleClient:
         try:
             if type == "track" and provider_id:
                 # Current DroppedNeedle API: a searched recording is requested
-                # by its MusicBrainz recording ID.  The route requires a JSON
-                # object but has no mandatory fields in its public schema.
+                # by its MusicBrainz recording ID.  Its msgspec schema requires
+                # the artist and title in the JSON body; album/duration are
+                # optional because DroppedNeedle resolves the release itself.
                 response = await self._request(
-                    "POST", f"/api/v1/tracks/{provider_id}/request", json={}
+                    "POST",
+                    f"/api/v1/tracks/{provider_id}/request",
+                    json={"artist_name": artist, "track_title": title},
                 )
             else:
                 # Backwards-compatible fallback for request types without a
