@@ -77,8 +77,23 @@ async def search(db: DbSession, query: str) -> Dict[str, Any]:
         track = library_service.upsert_external_track(db, ext)
         tracks_out.append(track_out(track))
 
+    # DroppedNeedle's public search is primarily track-oriented. Derive artist
+    # and release cards from those tracks too, so an artist absent from the
+    # local Navidrome library (for example Amaral) still opens its catalogue.
+    artists = list(nav.artists)
+    seen_artists = {a.name.casefold() for a in artists}
+    albums = list(nav.albums)
+    seen_albums = {(a.title.casefold(), a.artist.casefold()) for a in albums}
+    for ext in merged:
+        if ext.artist and ext.artist.casefold() not in seen_artists:
+            artists.append(ExternalArtist(provider=ext.provider, provider_id=ext.artist_id or ext.artist, name=ext.artist))
+            seen_artists.add(ext.artist.casefold())
+        if ext.album and (ext.album.casefold(), ext.artist.casefold()) not in seen_albums:
+            albums.append(ExternalAlbum(provider=ext.provider, provider_id=ext.album_id or ext.album, title=ext.album, artist=ext.artist, artist_id=ext.artist_id, cover=ext.cover, year=ext.year, available=ext.available))
+            seen_albums.add((ext.album.casefold(), ext.artist.casefold()))
+
     return {
         "tracks": tracks_out,
-        "albums": [_album_out(a) for a in nav.albums],
-        "artists": [_artist_out(a) for a in nav.artists],
+        "albums": [_album_out(a) for a in albums[:limit]],
+        "artists": [_artist_out(a) for a in artists[:limit]],
     }

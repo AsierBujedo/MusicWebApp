@@ -187,14 +187,17 @@ class RealDroppedNeedleClient:
             if not isinstance(recording, dict) or not recording.get("id"):
                 continue
             artist_parts = []
+            artist_id = None
             for credit in recording.get("artist-credit", []):
                 if isinstance(credit, dict):
                     nested_artist = credit.get("artist")
                     nested_name = nested_artist.get("name") if isinstance(nested_artist, dict) else ""
+                    artist_id = nested_artist.get("id") if isinstance(nested_artist, dict) else artist_id
                     artist_parts.append(str(credit.get("name") or nested_name or ""))
                     artist_parts.append(str(credit.get("joinphrase") or ""))
             releases = recording.get("releases", [])
             release = releases[0] if isinstance(releases, list) and releases and isinstance(releases[0], dict) else {}
+            release_group = release.get("release-group") if isinstance(release, dict) else {}
             length = recording.get("length")
             try:
                 duration = int(int(length) / 1000) if length is not None else None
@@ -211,7 +214,9 @@ class RealDroppedNeedleClient:
                     provider_id=str(recording["id"]),
                     title=str(recording.get("title") or ""),
                     artist="".join(artist_parts),
+                    artist_id=str(artist_id) if artist_id else None,
                     album=release.get("title"),
+                    album_id=str(release_group.get("id")) if isinstance(release_group, dict) and release_group.get("id") else None,
                     year=year,
                     duration=duration,
                     available=False,
@@ -258,6 +263,62 @@ class RealDroppedNeedleClient:
         except Exception:
             logger.warning("DroppedNeedle status check failed", exc_info=True)
             return {"external_id": external_id, "state": "unknown"}
+
+    async def get_artist_catalog(self, artist_id: str, name: Optional[str] = None) -> dict:
+        try:
+            return self._payload(await self._request("GET", f"/api/v1/artists/{artist_id}"))
+        except Exception:
+            if not name:
+                logger.warning("DroppedNeedle artist lookup failed", exc_info=True)
+                return {}
+        try:
+            raw = self._payload(await self._request("GET", "/api/v1/search", params={"q": name, "query": name, "limit_artists": 10, "limit_albums": 0, "buckets": "artists"}))
+            candidates = raw.get("artists", []) if isinstance(raw, dict) else []
+            candidate = next((item for item in candidates if isinstance(item, dict) and str(item.get("title") or item.get("name") or "").casefold() == name.casefold()), None)
+            target_id = candidate.get("musicbrainz_id") if candidate else None
+            return self._payload(await self._request("GET", f"/api/v1/artists/{target_id}")) if target_id else {}
+        except Exception:
+            logger.warning("DroppedNeedle artist resolution failed", exc_info=True)
+            return {}
+
+    async def get_album_catalog(self, album_id: str, artist: Optional[str] = None, title: Optional[str] = None) -> dict:
+        try:
+            return self._payload(await self._request("GET", f"/api/v1/albums/{album_id}"))
+        except Exception:
+            if not title:
+                logger.warning("DroppedNeedle album lookup failed", exc_info=True)
+                return {}
+        try:
+            query = f"{artist or ''} {title}".strip()
+            raw = self._payload(await self._request("GET", "/api/v1/search", params={"q": query, "query": query, "limit_artists": 0, "limit_albums": 20, "buckets": "albums"}))
+            candidates = raw.get("albums", []) if isinstance(raw, dict) else []
+            candidate = next((item for item in candidates if isinstance(item, dict) and str(item.get("title") or "").casefold() == title.casefold() and (not artist or str(item.get("artist") or "").casefold() == artist.casefold())), None)
+            target_id = candidate.get("musicbrainz_id") if candidate else None
+            return self._payload(await self._request("GET", f"/api/v1/albums/{target_id}")) if target_id else {}
+        except Exception:
+            logger.warning("DroppedNeedle album resolution failed", exc_info=True)
+            return {}
+
+    async def request_album(
+        self, *, musicbrainz_id: str, artist: str, album: str, year: Optional[int], artist_mbid: Optional[str]
+    ) -> dict:
+        body: dict[str, Any] = {"musicbrainz_id": musicbrainz_id, "artist": artist, "album": album}
+        if year is not None:
+            body["year"] = year
+        if artist_mbid:
+            body["artist_mbid"] = artist_mbid
+        try:
+            return self._payload(await self._request("POST", "/api/v1/requests/new", json=body))
+        except Exception:
+            logger.warning("DroppedNeedle album request failed", exc_info=True)
+            return {}
+
+    async def request_albums(self, items: List[dict]) -> dict:
+        try:
+            return self._payload(await self._request("POST", "/api/v1/requests/batch", json={"items": items}))
+        except Exception:
+            logger.warning("DroppedNeedle batch album request failed", exc_info=True)
+            return {}
 
     async def aclose(self) -> None:
         await self._client.aclose()

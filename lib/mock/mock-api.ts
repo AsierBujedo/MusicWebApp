@@ -325,6 +325,25 @@ class MockApi implements MusicApi {
   async uploadPlaylistCover(id: string, _file: File): Promise<Playlist> {
     return this.getPlaylist(id)
   }
+  async getArtistCatalog(id: string, name?: string): Promise<import("@/types/api").ArtistCatalog> {
+    const tracks = [...this.tracks.values()].filter((track) => track.artistId === id || track.artist === name)
+    const first = tracks[0]
+    if (!first) throw new ApiError("No encontramos este artista.", 404)
+    const albums = [...new Map(tracks.filter((track) => track.albumId).map((track) => [track.albumId!, { id: track.albumId!, title: track.album ?? "Álbum", year: track.year, cover: track.cover, inLibrary: track.status === "AVAILABLE", requested: track.status === "PENDING" }])).values()]
+    return { id, name: first.artist, albums, eps: [], singlesCount: 0 }
+  }
+  async getAlbumCatalog(id: string, artist?: string, title?: string): Promise<import("@/types/api").AlbumCatalog> {
+    const tracks = [...this.tracks.values()].filter((track) => track.albumId === id || (track.artist === artist && track.album === title))
+    const first = tracks[0]
+    if (!first) throw new ApiError("No encontramos este álbum.", 404)
+    return { id, title: first.album ?? "Álbum", artist: first.artist, artistId: first.artistId, year: first.year, cover: first.cover, inLibrary: tracks.every((track) => track.status === "AVAILABLE"), tracks }
+  }
+  async requestAlbum(_id: string): Promise<{ success: boolean; message?: string }> {
+    return { success: true, message: "Solicitud enviada" }
+  }
+  async requestArtist(_id: string): Promise<{ success: boolean; requested: number; skipped: number; message?: string }> {
+    return { success: true, requested: 1, skipped: 0, message: "Discografía enviada" }
+  }
 
   // ---- history ----
   async getHistory(): Promise<HistoryEntry[]> {

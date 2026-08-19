@@ -56,6 +56,35 @@ export interface Artist {
   albumCount?: number
 }
 
+export interface CatalogRelease {
+  id: string
+  title: string
+  year?: number
+  cover?: string
+  inLibrary: boolean
+  requested: boolean
+}
+
+export interface ArtistCatalog {
+  id: string
+  name: string
+  image?: string
+  albums: CatalogRelease[]
+  eps: CatalogRelease[]
+  singlesCount: number
+}
+
+export interface AlbumCatalog {
+  id: string
+  title: string
+  artist: string
+  artistId?: string
+  year?: number
+  cover?: string
+  inLibrary: boolean
+  tracks: Track[]
+}
+
 export type SearchResultType = "track" | "album" | "artist"
 
 export interface SearchResults {

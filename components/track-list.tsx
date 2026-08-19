@@ -32,17 +32,19 @@ export function TrackListSkeleton({ count = 6 }: { count?: number }) {
 // A horizontal scroller for cards on wider content.
 export function Section({
   title,
+  subtitle,
   children,
   action,
 }: {
   title: string
+  subtitle?: string
   children: React.ReactNode
   action?: React.ReactNode
 }) {
   return (
     <section className="mb-8">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="font-display text-lg font-semibold tracking-tight">{title}</h2>
+      <div className="mb-3 flex items-end justify-between gap-3">
+        <div><h2 className="font-display text-lg font-semibold tracking-tight">{title}</h2>{subtitle && <p className="mt-0.5 text-sm text-muted-foreground">{subtitle}</p>}</div>
         {action}
       </div>
       {children}

@@ -18,6 +18,39 @@ from app.services.integrations import get_navidrome_client
 router = APIRouter(prefix="/api", tags=["covers"])
 
 
+async def _cover_art_archive(mbid: str, *, release_group: bool = True):
+    client = httpx.AsyncClient(timeout=httpx.Timeout(15.0), follow_redirects=True)
+    try:
+        response = await client.send(
+            client.build_request("GET", f"https://coverartarchive.org/{'release-group' if release_group else 'release'}/{mbid}/front-250"),
+            stream=True,
+        )
+    except httpx.HTTPError:
+        await client.aclose()
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Cover service unavailable")
+    if response.status_code >= 400:
+        await response.aclose()
+        await client.aclose()
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cover not found")
+
+    async def body():
+        try:
+            async for chunk in response.aiter_bytes():
+                yield chunk
+        finally:
+            await response.aclose()
+
+    headers = {"Cache-Control": "public, max-age=86400"}
+    if "content-length" in response.headers:
+        headers["Content-Length"] = response.headers["content-length"]
+    return StreamingResponse(body(), headers=headers, media_type=response.headers.get("content-type", "image/jpeg"), background=BackgroundTask(client.aclose))
+
+
+@router.get("/covers/release-group/{release_group_mbid}")
+async def release_group_cover(release_group_mbid: str, _user: User = Depends(get_current_user)):
+    return await _cover_art_archive(release_group_mbid)
+
+
 @router.get("/covers/{track_id}")
 async def cover(
     track_id: str,
@@ -35,36 +68,7 @@ async def cover(
             release_mbid = None
         if not release_mbid:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cover not found")
-        client = httpx.AsyncClient(timeout=httpx.Timeout(15.0), follow_redirects=True)
-        try:
-            response = await client.send(
-                client.build_request("GET", f"https://coverartarchive.org/release/{release_mbid}/front-250"),
-                stream=True,
-            )
-        except httpx.HTTPError:
-            await client.aclose()
-            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Cover service unavailable")
-        if response.status_code >= 400:
-            await response.aclose()
-            await client.aclose()
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cover not found")
-
-        async def musicbrainz_body():
-            try:
-                async for chunk in response.aiter_bytes():
-                    yield chunk
-            finally:
-                await response.aclose()
-
-        headers = {"Cache-Control": "public, max-age=86400"}
-        if "content-length" in response.headers:
-            headers["Content-Length"] = response.headers["content-length"]
-        return StreamingResponse(
-            musicbrainz_body(),
-            headers=headers,
-            media_type=response.headers.get("content-type", "image/jpeg"),
-            background=BackgroundTask(client.aclose),
-        )
+        return await _cover_art_archive(release_mbid, release_group=False)
 
     if track.provider != "navidrome" or not track.provider_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cover not found")

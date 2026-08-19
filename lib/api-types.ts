@@ -1,5 +1,7 @@
 import type {
   AdminStats,
+  AlbumCatalog,
+  ArtistCatalog,
   HistoryEntry,
   MusicRequest,
   Playlist,
@@ -71,6 +73,12 @@ export interface MusicApi {
   addPlaylistCollaborator(id: string, username: string): Promise<Playlist>
   removePlaylistCollaborator(id: string, username: string): Promise<Playlist>
   uploadPlaylistCover(id: string, file: File): Promise<Playlist>
+
+  // catalogue / full releases
+  getArtistCatalog(id: string, name?: string): Promise<ArtistCatalog>
+  getAlbumCatalog(id: string, artist?: string, title?: string): Promise<AlbumCatalog>
+  requestAlbum(id: string): Promise<{ success: boolean; message?: string }>
+  requestArtist(id: string): Promise<{ success: boolean; requested: number; skipped: number; message?: string }>
 
   // history
   getHistory(): Promise<HistoryEntry[]>

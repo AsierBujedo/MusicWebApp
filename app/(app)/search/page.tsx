@@ -111,7 +111,7 @@ export default function SearchPage() {
             <Section title="Artistas">
               <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 lg:grid-cols-6">
                 {data!.artists.map((a) => (
-                  <MediaCard key={a.id} title={a.name} subtitle={`${a.albumCount ?? 0} álbumes`} cover={a.image} rounded />
+                  <MediaCard key={a.id} title={a.name} subtitle={`${a.albumCount ?? 0} álbumes`} cover={a.image} rounded href={`/artists/${a.id}?name=${encodeURIComponent(a.name)}`} />
                 ))}
               </div>
             </Section>
@@ -122,7 +122,7 @@ export default function SearchPage() {
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
                 {data!.albums.map((al) => (
                   <div key={al.id} className="relative">
-                    <MediaCard title={al.title} subtitle={`${al.artist} · ${al.year ?? ""}`} cover={al.cover} />
+                    <MediaCard title={al.title} subtitle={`${al.artist} · ${al.year ?? ""}`} cover={al.cover} href={`/albums/${al.id}?artist=${encodeURIComponent(al.artist)}&title=${encodeURIComponent(al.title)}`} />
                     <div className="absolute left-2 top-2">
                       <StatusBadge status={al.status} />
                     </div>

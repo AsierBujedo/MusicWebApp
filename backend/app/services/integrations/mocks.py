@@ -134,6 +134,31 @@ class MockDroppedNeedleClient:
         # The worker drives the simulated lifecycle; nothing external to report.
         return {"external_id": external_id, "state": "unknown"}
 
+    async def get_artist_catalog(self, artist_id: str, name: Optional[str] = None) -> dict:
+        artist = next((a for a in _ARTISTS if a.provider_id == artist_id or (name and a.name.casefold() == name.casefold())), None)
+        if not artist:
+            return {}
+        releases = [a for a in _ALBUMS if a.artist_id == artist_id]
+        return {"musicbrainz_id": artist_id, "name": artist.name, "image": artist.image, "albums": [
+            {"id": a.provider_id, "title": a.title, "year": a.year, "in_library": a.available} for a in releases
+        ], "eps": [], "singles": []}
+
+    async def get_album_catalog(self, album_id: str, artist: Optional[str] = None, title: Optional[str] = None) -> dict:
+        album = next((a for a in _ALBUMS if a.provider_id == album_id or (title and a.title == title and (not artist or a.artist == artist))), None)
+        if not album:
+            return {}
+        tracks = [t for t in _CATALOG if t.album_id == album_id]
+        return {"musicbrainz_id": album.id if hasattr(album, "id") else album.provider_id, "title": album.title,
+                "artist_name": album.artist, "artist_id": album.artist_id, "year": album.year,
+                "cover_url": album.cover, "in_library": album.available,
+                "tracks": [{"recording_id": t.provider_id, "title": t.title, "position": i + 1, "length": t.duration} for i, t in enumerate(tracks)]}
+
+    async def request_album(self, **_kwargs) -> dict:
+        return {"success": True, "status": "pending", "message": "Solicitud enviada"}
+
+    async def request_albums(self, items: List[dict]) -> dict:
+        return {"success": True, "requested": len(items), "skipped": 0}
+
     async def aclose(self) -> None:
         return None
 

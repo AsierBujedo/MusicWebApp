@@ -2,6 +2,7 @@
 from app.routers import (
     admin,
     auth,
+    catalog,
     events,
     favorites,
     health,
@@ -16,6 +17,7 @@ from app.routers import (
 __all__ = [
     "admin",
     "auth",
+    "catalog",
     "events",
     "favorites",
     "health",

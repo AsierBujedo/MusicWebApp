@@ -128,6 +128,21 @@ class RealApi implements MusicApi {
     if (!res.ok) throw new ApiError("No se pudo subir la portada", res.status)
     return res.json() as Promise<Playlist>
   }
+  getArtistCatalog(id: string, name?: string) {
+    return request<import("@/types/api").ArtistCatalog>(`/api/catalog/artists/${id}${name ? `?name=${encodeURIComponent(name)}` : ""}`)
+  }
+  getAlbumCatalog(id: string, artist?: string, title?: string) {
+    const query = new URLSearchParams()
+    if (artist) query.set("artist", artist)
+    if (title) query.set("title", title)
+    return request<import("@/types/api").AlbumCatalog>(`/api/catalog/albums/${id}${query.size ? `?${query}` : ""}`)
+  }
+  requestAlbum(id: string) {
+    return request<{ success: boolean; message?: string }>(`/api/catalog/albums/${id}/request`, { method: "POST" })
+  }
+  requestArtist(id: string) {
+    return request<{ success: boolean; requested: number; skipped: number; message?: string }>(`/api/catalog/artists/${id}/request`, { method: "POST" })
+  }
 
   getHistory() {
     return request<HistoryEntry[]>("/api/history")
