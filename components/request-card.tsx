@@ -93,6 +93,10 @@ export function RequestCard({ request, showRequester }: { request: MusicRequest;
         </div>
       )}
 
+      {isFailed && request.errorMessage && (
+        <p className="mt-2 text-xs text-destructive">{request.errorMessage}</p>
+      )}
+
       {showRequester && request.requestedByName && (
         <p className="mt-2 text-xs text-muted-foreground">Solicitado por {request.requestedByName}</p>
       )}
