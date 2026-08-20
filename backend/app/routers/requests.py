@@ -10,6 +10,7 @@ from app.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.request import CreateRequestInput, MusicRequestOut, YouTubeCandidateOut, YouTubeDownloadInput
 from app.services import event_service, library_service, manual_import_service, request_service, youtube_fallback_service
+from app.services.integrations import get_droppedneedle_client
 from app.models.base import utcnow
 from app.services.serializers import request_out
 
@@ -75,6 +76,41 @@ async def retry_request(request_id: str, user: User = Depends(get_current_user),
         request_id=req.id, status=req.status, progress=req.progress, owner_user_id=req.requested_by
     )
     return request_out(req, requested_by_name=user.display_name)
+
+
+@router.post("/{request_id}/cancel", status_code=status.HTTP_204_NO_CONTENT)
+async def cancel_active_request(
+    request_id: str, user: User = Depends(get_current_user), db: DbSession = Depends(get_db)
+):
+    """Cancel a queued or active remote task, then remove its local request."""
+    req = request_service.get_request(db, request_id)
+    if req is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Request not found")
+    ensure_owner_or_admin(user, req.requested_by)
+    if req.status not in {"APPROVED", "SEARCHING", "DOWNLOADING"}:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only approved or active requests can be cancelled")
+
+    # Once DroppedNeedle has a task ID, it owns live slskd transfers. Do not
+    # remove Resonar's row unless DroppedNeedle confirms that cancellation.
+    if req.external_id:
+        droppedneedle = get_droppedneedle_client()
+        try:
+            cancelled = await droppedneedle.cancel(req.external_id)
+        finally:
+            await droppedneedle.aclose()
+        if not cancelled:
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Remote download could not be cancelled")
+    elif req.status != "APPROVED":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Remote task is not ready to cancel")
+
+    track_id, owner_user_id = req.track_id, req.requested_by
+    request_service.delete_request(db, req)
+    track = library_service.get_track(db, track_id)
+    if track is not None:
+        await event_service.emit_track_updated(
+            track_id=track.id, status=track.status, progress=None, audience_user_ids={owner_user_id}
+        )
+    return None
 
 
 @router.post("/{request_id}/upload", response_model=MusicRequestOut)

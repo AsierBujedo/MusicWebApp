@@ -13,6 +13,7 @@ from pathlib import Path
 
 from fastapi import HTTPException, status
 
+from app.config import settings
 from app.models.track import Track
 from app.services import manual_import_service
 
@@ -32,12 +33,23 @@ def _run(command: list[str], *, timeout: int) -> subprocess.CompletedProcess[str
     return subprocess.run(command, check=False, text=True, capture_output=True, timeout=timeout)
 
 
+def _youtube_options() -> list[str]:
+    """Use the browser-oriented client; append local session cookies if set."""
+    options = [
+        "--js-runtimes", "node", "--remote-components", "ejs:github",
+        "--extractor-args", "youtube:player_client=default,web_safari",
+    ]
+    cookie_path = Path(settings.ytdlp_cookies_path) if settings.ytdlp_cookies_path else None
+    if cookie_path and cookie_path.is_file():
+        options.extend(["--cookies", str(cookie_path)])
+    elif cookie_path:
+        logger.warning("Configured yt-dlp cookies file does not exist: %s", cookie_path)
+    return options
+
+
 async def candidates(track: Track) -> list[YouTubeCandidate]:
     query = f"{track.artist} - {track.title}"
-    command = [
-        "yt-dlp", "--js-runtimes", "node", "--remote-components", "ejs:github",
-        "--flat-playlist", "--dump-single-json", "--no-warnings", f"ytsearch8:{query}",
-    ]
+    command = ["yt-dlp", *_youtube_options(), "--flat-playlist", "--dump-single-json", "--no-warnings", f"ytsearch8:{query}"]
     try:
         result = await asyncio.to_thread(_run, command, timeout=90)
         payload = json.loads(result.stdout or "{}")
@@ -71,8 +83,7 @@ async def download_selected(*, video_id: str, track: Track) -> Path:
     try:
         template = str(workdir / "audio.%(ext)s")
         command = [
-            "yt-dlp", "--js-runtimes", "node", "--remote-components", "ejs:github",
-            "--no-playlist", "--no-warnings", "-f", "bestaudio/best", "-x",
+            "yt-dlp", *_youtube_options(), "--no-playlist", "--no-warnings", "-f", "bestaudio/best", "-x",
             "--audio-format", "mp3", "--audio-quality", "0", "-o", template,
             f"https://www.youtube.com/watch?v={video_id}",
         ]

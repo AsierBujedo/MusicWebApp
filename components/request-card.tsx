@@ -1,6 +1,6 @@
 "use client"
 
-import { RotateCw, Trash2, Play, Upload, Youtube } from "lucide-react"
+import { RotateCw, Trash2, Play, Upload, Youtube, CircleStop } from "lucide-react"
 import { useRef, useState } from "react"
 import type { MusicRequest } from "@/types/api"
 import { api } from "@/lib/api"
@@ -57,6 +57,16 @@ export function RequestCard({ request, showRequester }: { request: MusicRequest;
     }
   }
 
+  const handleCancel = async () => {
+    try {
+      await api.cancelRequest(request.id)
+      toast("Descarga anulada", "info")
+      refresh()
+    } catch {
+      toast("No se pudo anular la descarga", "error")
+    }
+  }
+
   const handlePlay = async () => {
     try {
       const track = await api.getTrack(request.trackId)
@@ -82,6 +92,7 @@ export function RequestCard({ request, showRequester }: { request: MusicRequest;
   }
 
   const canUpload = isFailed && (isAdmin || request.requestedBy === user?.id)
+  const canCancel = ["APPROVED", "SEARCHING", "DOWNLOADING"].includes(request.status)
 
   const openYouTubeFallback = async () => {
     setYoutubeOpen(true)
@@ -133,6 +144,11 @@ export function RequestCard({ request, showRequester }: { request: MusicRequest;
           {isFailed && (
             <Button size="icon-sm" variant="secondary" onClick={handleRetry} aria-label="Reintentar">
               <RotateCw className="h-4 w-4" />
+            </Button>
+          )}
+          {canCancel && (
+            <Button size="icon-sm" variant="secondary" onClick={handleCancel} aria-label="Anular descarga" title="Anular descarga">
+              <CircleStop className="h-4 w-4 text-destructive" />
             </Button>
           )}
           {canUpload && (

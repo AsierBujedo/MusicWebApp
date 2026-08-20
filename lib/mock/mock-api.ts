@@ -194,6 +194,11 @@ class MockApi implements MusicApi {
     return { ...req }
   }
 
+  async cancelRequest(id: string): Promise<void> {
+    await delay(200)
+    this.requests = this.requests.filter((request) => request.id !== id)
+  }
+
   async uploadRequestAudio(id: string, _file: File): Promise<MusicRequest> {
     await delay(300)
     const req = this.requests.find((r) => r.id === id)

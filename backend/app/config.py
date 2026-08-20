@@ -73,6 +73,9 @@ class Settings(BaseSettings):
     # the normal music library and are indexed on Navidrome's next scan.
     music_library_path: str = Field(default="/music", alias="MUSIC_LIBRARY_PATH")
     manual_upload_max_bytes: int = Field(default=314_572_800, alias="MANUAL_UPLOAD_MAX_BYTES")
+    # Optional Netscape-format cookies for yt-dlp. Keep the file outside Git;
+    # it is only read by the backend when YouTube requires a browser session.
+    ytdlp_cookies_path: str = Field(default="", alias="YTDLP_COOKIES_PATH")
 
     # ---- Limits ----
     search_min_query_length: int = Field(default=2, alias="SEARCH_MIN_QUERY_LENGTH")

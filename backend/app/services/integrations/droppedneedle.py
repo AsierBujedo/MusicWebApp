@@ -264,6 +264,15 @@ class RealDroppedNeedleClient:
             logger.warning("DroppedNeedle status check failed", exc_info=True)
             return {"external_id": external_id, "state": "unknown"}
 
+    async def cancel(self, external_id: str) -> bool:
+        """Cancel the native DroppedNeedle task and its slskd transfers."""
+        try:
+            data = self._payload(await self._request("POST", f"/api/v1/downloads/{external_id}/cancel"))
+            return bool(data.get("success"))
+        except Exception:
+            logger.warning("DroppedNeedle task cancellation failed", exc_info=True)
+            return False
+
     async def get_artist_catalog(self, artist_id: str, name: Optional[str] = None) -> dict:
         try:
             return self._payload(await self._request("GET", f"/api/v1/artists/{artist_id}"))

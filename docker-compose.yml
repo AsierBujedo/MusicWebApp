@@ -14,6 +14,8 @@ services:
       # Same host library as Navidrome: manual imports become part of the
       # normal catalogue, while Resonar can play them straight away.
       - /media/music:/music:rw
+      # Optional yt-dlp browser-session cookies; this directory is ignored by Git.
+      - ./backend/secrets:/run/secrets:ro
     networks:
       - default
       - media_default

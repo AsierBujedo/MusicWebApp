@@ -134,6 +134,9 @@ class MockDroppedNeedleClient:
         # The worker drives the simulated lifecycle; nothing external to report.
         return {"external_id": external_id, "state": "unknown"}
 
+    async def cancel(self, external_id: str) -> bool:
+        return bool(external_id)
+
     async def get_artist_catalog(self, artist_id: str, name: Optional[str] = None) -> dict:
         artist = next((a for a in _ARTISTS if a.provider_id == artist_id or (name and a.name.casefold() == name.casefold())), None)
         if not artist:

@@ -62,6 +62,7 @@ export interface MusicApi {
   createRequest(input: CreateRequestInput): Promise<MusicRequest>
   deleteRequest(id: string): Promise<void>
   retryRequest(id: string): Promise<MusicRequest>
+  cancelRequest(id: string): Promise<void>
   uploadRequestAudio(id: string, file: File): Promise<MusicRequest>
   getYouTubeCandidates(id: string): Promise<YouTubeCandidate[]>
   downloadRequestFromYouTube(id: string, videoId: string): Promise<MusicRequest>
