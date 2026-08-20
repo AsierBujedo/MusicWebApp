@@ -45,6 +45,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [expanded, setExpanded] = React.useState(false)
   const [playbackSession, setPlaybackSession] = React.useState(0)
   const [mediaDuration, setMediaDuration] = React.useState(0)
+  const syncSourceId = React.useRef(crypto.randomUUID())
+  const applyingRemoteSync = React.useRef(false)
   const audioRef = React.useRef<HTMLAudioElement | null>(null)
   const mediaControlsRef = React.useRef({
     next: () => {},
@@ -172,6 +174,26 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     [],
   )
   const toggleShuffle = React.useCallback(() => setShuffle((s) => !s), [])
+
+  React.useEffect(() => {
+    if (!currentTrack) return
+    if (applyingRemoteSync.current) { applyingRemoteSync.current = false; return }
+    const timer = window.setTimeout(() => {
+      api.syncPlayback({ track: currentTrack, queue, isPlaying, sourceId: syncSourceId.current }).catch(() => {})
+    }, 100)
+    return () => window.clearTimeout(timer)
+  }, [currentTrack?.id, queue, isPlaying])
+
+  React.useEffect(() => api.subscribe((event) => {
+    if (event.type !== "playback.sync" || event.sourceId === syncSourceId.current) return
+    applyingRemoteSync.current = true
+    const index = event.queue.findIndex((track) => track.id === event.track.id)
+    setQueue(event.queue)
+    setIndex(index >= 0 ? index : 0)
+    setPosition(0)
+    setIsPlaying(event.isPlaying)
+    setPlaybackSession((session) => session + 1)
+  }), [])
 
   // A queue transition changes `currentTrack` without calling `start`. Record
   // it here so every automatically played playlist track participates in the
@@ -363,7 +385,18 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             const actualDuration = event.currentTarget.duration
             if (Number.isFinite(actualDuration) && actualDuration > 0) setMediaDuration(actualDuration)
           }}
-          onEnded={() => next()}
+          onEnded={(event) => {
+            // Some mobile browsers finish an audio stream and emit a terminal
+            // pause in the same task. Defer queue advancement one turn so the
+            // next source is installed after that terminal state is settled.
+            if (repeat === "one") {
+              event.currentTarget.currentTime = 0
+              void event.currentTarget.play().catch(() => setIsPlaying(false))
+              return
+            }
+            setPosition(0)
+            window.setTimeout(() => next(), 0)
+          }}
           onPlay={() => setIsPlaying(true)}
           // Browsers emit `pause` immediately after `ended`. Do not let that
           // terminal pause override `next()` starting the following playlist

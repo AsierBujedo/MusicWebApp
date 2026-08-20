@@ -131,6 +131,7 @@ export interface MusicApi {
 
   // realtime
   subscribe(handler: (event: RealtimeEvent) => void): () => void
+  syncPlayback(payload: { track: Track; queue: Track[]; isPlaying: boolean; sourceId: string }): Promise<void>
 
   // admin
   getStats(): Promise<AdminStats>

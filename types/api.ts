@@ -163,8 +163,9 @@ export type RealtimeEvent =
       type: "request.updated"
       requestId: string
       status: RequestStatus
-      progress?: number
-    }
+    progress?: number
+  }
+  | { type: "playback.sync"; track: Track; queue: Track[]; isPlaying: boolean; sourceId: string }
   | {
       type: "track.updated"
       trackId: string

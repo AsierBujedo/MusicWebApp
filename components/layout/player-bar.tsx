@@ -96,6 +96,14 @@ export function PlayerBar() {
   const Controls = ({ size = "md" }: { size?: "md" | "lg" }) => (
     <div className="flex items-center justify-center gap-2 sm:gap-4">
       <button
+        onClick={() => { enqueue(currentTrack); toast("Añadida a continuación en la cola", "success") }}
+        aria-label="Añadir a la cola"
+        title="Añadir a la cola"
+        className="text-muted-foreground transition-colors hover:text-primary"
+      >
+        <Plus className={size === "lg" ? "h-5 w-5" : "h-4 w-4"} />
+      </button>
+      <button
         onClick={toggleShuffle}
         aria-label="Aleatorio"
         aria-pressed={shuffle}
@@ -122,6 +130,14 @@ export function PlayerBar() {
       </button>
       <button onClick={next} aria-label="Siguiente" className="text-foreground hover:text-primary">
         <SkipForward className={cn(size === "lg" ? "h-6 w-6" : "h-5 w-5", "fill-current")} />
+      </button>
+      <button
+        onClick={() => addToPlaylist(currentTrack)}
+        aria-label="Añadir a playlist"
+        title="Añadir a playlist"
+        className="text-muted-foreground transition-colors hover:text-primary"
+      >
+        <ListPlus className={size === "lg" ? "h-5 w-5" : "h-4 w-4"} />
       </button>
       <button
         onClick={cycleRepeat}

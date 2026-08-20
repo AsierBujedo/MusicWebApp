@@ -210,6 +210,9 @@ class RealApi implements MusicApi {
     }
     return () => es.close()
   }
+  async syncPlayback(payload: { track: Track; queue: Track[]; isPlaying: boolean; sourceId: string }): Promise<void> {
+    await request<void>("/api/playback/sync", { method: "POST", body: JSON.stringify(payload) })
+  }
 
   getStats() {
     return request<AdminStats>("/api/admin/stats")
