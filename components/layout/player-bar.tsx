@@ -87,7 +87,7 @@ export function PlayerBar() {
   const fav = isFavorite(currentTrack.id)
 
   const RepeatIcon = repeat === "one" ? Repeat1 : Repeat
-  const actions = <Dropdown trigger={<Button variant="ghost" size="icon-sm" aria-label="Acciones de la canción"><MoreHorizontal className="h-5 w-5" /></Button>}>
+  const actions = <Dropdown trigger={<Button variant="secondary" size="icon" className="h-11 w-11 rounded-full" aria-label="Acciones de la canción"><MoreHorizontal className="h-6 w-6" /></Button>}>
     <DropdownItem icon={Plus} onClick={() => { enqueue(currentTrack); toast("Añadida a continuación en la cola", "success") }}>Añadir a la cola</DropdownItem>
     <DropdownItem icon={ListPlus} onClick={() => addToPlaylist(currentTrack)}>Añadir a playlist</DropdownItem>
     <DropdownItem icon={Heart} onClick={() => toggleFavorite(currentTrack)}>{fav ? "Quitar de favoritos" : "Añadir a favoritos"}</DropdownItem>
@@ -95,14 +95,6 @@ export function PlayerBar() {
 
   const Controls = ({ size = "md" }: { size?: "md" | "lg" }) => (
     <div className="flex items-center justify-center gap-2 sm:gap-4">
-      <button
-        onClick={() => { enqueue(currentTrack); toast("Añadida a continuación en la cola", "success") }}
-        aria-label="Añadir a la cola"
-        title="Añadir a la cola"
-        className="text-muted-foreground transition-colors hover:text-primary"
-      >
-        <Plus className={size === "lg" ? "h-5 w-5" : "h-4 w-4"} />
-      </button>
       <button
         onClick={toggleShuffle}
         aria-label="Aleatorio"
@@ -130,14 +122,6 @@ export function PlayerBar() {
       </button>
       <button onClick={next} aria-label="Siguiente" className="text-foreground hover:text-primary">
         <SkipForward className={cn(size === "lg" ? "h-6 w-6" : "h-5 w-5", "fill-current")} />
-      </button>
-      <button
-        onClick={() => addToPlaylist(currentTrack)}
-        aria-label="Añadir a playlist"
-        title="Añadir a playlist"
-        className="text-muted-foreground transition-colors hover:text-primary"
-      >
-        <ListPlus className={size === "lg" ? "h-5 w-5" : "h-4 w-4"} />
       </button>
       <button
         onClick={cycleRepeat}
@@ -220,7 +204,7 @@ export function PlayerBar() {
               <ChevronDown className="h-6 w-6" />
             </button>
             <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Reproduciendo</span>
-            <div>{actions}</div>
+            <span className="w-10" />
           </div>
 
           <div className="flex flex-1 flex-col items-center justify-center gap-8 px-6">
@@ -253,8 +237,9 @@ export function PlayerBar() {
               </div>
             </div>
 
-            <div className="w-full max-w-md">
+            <div className="flex w-full max-w-md items-center justify-center gap-7">
               <Controls size="lg" />
+              <div className="border-l border-border pl-5">{actions}</div>
             </div>
 
             <div className="flex w-full max-w-md items-center gap-3">

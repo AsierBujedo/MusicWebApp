@@ -249,6 +249,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     const audio = audioRef.current
     if (!audio || !currentTrack) return
     audio.src = api.getStreamUrl(currentTrack.id)
+    audio.load()
     audio.volume = muted ? 0 : volume
     if (isPlaying) audio.play().catch(() => setIsPlaying(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -384,6 +385,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           onLoadedMetadata={(event) => {
             const actualDuration = event.currentTarget.duration
             if (Number.isFinite(actualDuration) && actualDuration > 0) setMediaDuration(actualDuration)
+          }}
+          onCanPlay={(event) => {
+            if (isPlaying) event.currentTarget.play().catch(() => setIsPlaying(false))
           }}
           onEnded={(event) => {
             // Some mobile browsers finish an audio stream and emit a terminal
