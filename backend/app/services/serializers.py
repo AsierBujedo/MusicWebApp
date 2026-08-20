@@ -98,12 +98,18 @@ def playlist_out(db: DbSession, pl: Playlist) -> Dict[str, Any]:
         track = item.track or db.get(Track, item.track_id)
         if track is not None:
             tracks.append(track_out(track))
+    # A reset changes the generated collage at the same endpoint. Version its
+    # URL so a browser never keeps showing a former custom/collage cover.
+    generated_cover = f"/api/playlists/{pl.id}/cover?v={int(pl.updated_at.timestamp() * 1000)}"
+    cover = pl.cover or generated_cover
+    if pl.custom_cover_path and pl.cover == f"/api/playlists/{pl.id}/cover":
+        cover = generated_cover
     return _compact(
         {
             "id": pl.id,
             "name": pl.name,
             "description": pl.description,
-            "cover": pl.cover or f"/api/playlists/{pl.id}/cover",
+            "cover": cover,
             "trackIds": track_ids,
             "tracks": tracks,
             "createdAt": iso(pl.created_at),

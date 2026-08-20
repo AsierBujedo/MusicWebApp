@@ -51,8 +51,8 @@ export default function PlaylistDetailPage() {
       toast("Persona añadida", "success")
     } catch { toast("No se pudo añadir a esa persona", "error") }
   }
-  const chooseTrackCover = async (trackId: string) => { if (!data) return; try { await api.setPlaylistCoverFromTrack(data.id, trackId); mutate(); globalMutate("playlists"); setCoverPicker(false) } catch { toast("No se pudo cambiar la portada", "error") } }
-  const resetCover = async () => { if (!data) return; try { await api.resetPlaylistCover(data.id); mutate(); globalMutate("playlists") } catch { toast("No se pudo restablecer la portada", "error") } }
+  const chooseTrackCover = async (trackId: string) => { if (!data) return; try { const playlist = await api.setPlaylistCoverFromTrack(data.id, trackId); mutate(playlist, false); globalMutate("playlists"); setCoverPicker(false) } catch { toast("No se pudo cambiar la portada", "error") } }
+  const resetCover = async () => { if (!data) return; try { const playlist = await api.resetPlaylistCover(data.id); mutate(playlist, false); globalMutate("playlists") } catch { toast("No se pudo restablecer la portada", "error") } }
   const removeCollaborator = async (username: string) => {
     if (!data) return
     try { await api.removePlaylistCollaborator(data.id, username); mutate(); globalMutate("playlists") }
@@ -182,9 +182,9 @@ export default function PlaylistDetailPage() {
         open={coverPicker}
         onClose={() => setCoverPicker(false)}
         title="Elegir carátula"
-        description="Selecciona la portada de una canción de esta playlist o restablece el collage automático."
+        description="Selecciona una de las carátulas que usan las canciones de esta playlist."
       >
-        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">{tracks.filter((track) => track.cover).map((track) => <button key={track.id} onClick={() => void chooseTrackCover(track.id)} className="overflow-hidden rounded-xl border border-border hover:border-primary"><CoverImage src={track.cover} alt={track.title} className="aspect-square w-full" /></button>)}</div>
+        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">{tracks.map((track) => <button key={track.id} onClick={() => void chooseTrackCover(track.id)} className="overflow-hidden rounded-xl border border-border hover:border-primary"><CoverImage src={track.cover} alt={track.title} className="aspect-square w-full" /></button>)}</div>
       </Modal>
 
       <Modal
