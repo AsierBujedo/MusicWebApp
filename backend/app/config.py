@@ -62,6 +62,11 @@ class Settings(BaseSettings):
 
     slskd_url: str = Field(default="", alias="SLSKD_URL")
     slskd_api_key: str = Field(default="", alias="SLSKD_API_KEY")
+    # slskd 0.25.x requires an administrator JWT (not an API key) to restart
+    # its own process.  These credentials never leave the backend and are used
+    # only for that explicit admin maintenance action.
+    slskd_username: str = Field(default="", alias="SLSKD_USERNAME")
+    slskd_password: str = Field(default="", alias="SLSKD_PASSWORD")
 
     # Spotify is optional and used only to import a user's playlist metadata.
     # Audio is never proxied from Spotify.

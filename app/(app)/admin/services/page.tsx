@@ -66,7 +66,7 @@ export default function AdminServicesPage() {
     setResetting(true)
     try {
       const result = await api.resetSlskd()
-      toast(result.restarted ? `slskd reiniciado. ${result.cancelled} descargas canceladas.` : `Cola vaciada (${result.cancelled}), pero la clave de slskd no permite reiniciarlo.`, result.restarted ? "success" : "info")
+      toast(result.restarted ? `slskd reiniciado. ${result.cancelled} descargas canceladas.` : `Cola vaciada (${result.cancelled}), pero faltan o no son válidas las credenciales de administrador de slskd para reiniciarlo.`, result.restarted ? "success" : "info")
       setConfirmReset(false)
       setTimeout(() => void mutate(), 1500)
     } catch {

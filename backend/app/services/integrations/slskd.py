@@ -76,18 +76,45 @@ class RealSlskdClient:
             # Clear the completed records too, then ask slskd itself to restart.
             completed = await self._client.delete("/api/v0/transfers/downloads/all/completed")
             completed.raise_for_status()
-            restarted = await self._client.put("/api/v0/application")
-            # Queue maintenance can be permitted for a restricted key while
-            # restarting the application requires Administrator. Report the
-            # successful cleanup accurately instead of turning it into a 502.
-            if restarted.status_code in {401, 403}:
-                logger.warning("slskd queue cleared but restart was not authorized")
+            restarted = await self._restart()
+            if not restarted:
+                logger.warning("slskd queue cleared but restart credentials are not configured or were rejected")
                 return {"cancelled": cancelled, "failed": failed, "restarted": False}
-            restarted.raise_for_status()
             return {"cancelled": cancelled, "failed": failed, "restarted": True}
         except Exception:
             logger.warning("slskd queue reset failed", exc_info=True)
             raise
+
+    async def _restart(self) -> bool:
+        """Restart slskd with its administrator JWT.
+
+        slskd's ``PUT /api/v0/application`` is deliberately ``JwtOnly`` in
+        v0.25.x, so an API key cannot perform this operation even if its role
+        is administrator.  Obtain a short-lived token only for this request.
+        """
+        if not settings.slskd_username or not settings.slskd_password:
+            return False
+        login = await self._client.post(
+            "/api/v0/session",
+            json={"username": settings.slskd_username, "password": settings.slskd_password},
+        )
+        if login.status_code in {401, 403}:
+            logger.warning("slskd administrator login was rejected")
+            return False
+        login.raise_for_status()
+        token = login.json().get("token") if isinstance(login.json(), dict) else None
+        if not isinstance(token, str) or not token:
+            logger.warning("slskd administrator login returned no JWT")
+            return False
+        restarted = await self._client.put(
+            "/api/v0/application",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        if restarted.status_code in {401, 403}:
+            logger.warning("slskd administrator JWT was rejected for restart")
+            return False
+        restarted.raise_for_status()
+        return True
 
     @staticmethod
     def _download_entries(payload: Any) -> list[tuple[str, str]]:
