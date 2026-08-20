@@ -141,5 +141,5 @@ export interface MusicApi {
   getAllRequests(): Promise<MusicRequest[]>
   setRequestStatus(id: string, status: "APPROVED" | "REJECTED"): Promise<MusicRequest>
   getServices(): Promise<ServiceHealth[]>
-  resetSlskd(): Promise<{ success: boolean; cancelled: number; failed: number }>
+  resetSlskd(): Promise<{ success: boolean; cancelled: number; failed: number; restarted: boolean }>
 }

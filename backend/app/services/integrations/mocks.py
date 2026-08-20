@@ -173,8 +173,8 @@ class MockSlskdClient:
     async def get_download_status(self, external_id: str) -> dict:
         return {"external_id": external_id, "state": "unknown", "progress": None}
 
-    async def reset_download_queue(self) -> dict[str, int]:
-        return {"cancelled": 0, "failed": 0}
+    async def reset_download_queue(self) -> dict[str, int | bool]:
+        return {"cancelled": 0, "failed": 0, "restarted": True}
 
     async def aclose(self) -> None:
         return None

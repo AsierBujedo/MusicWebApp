@@ -237,7 +237,7 @@ class RealApi implements MusicApi {
     return request<ServiceHealth[]>("/api/admin/services")
   }
   resetSlskd() {
-    return request<{ success: boolean; cancelled: number; failed: number }>("/api/admin/services/slskd/reset", { method: "POST" })
+    return request<{ success: boolean; cancelled: number; failed: number; restarted: boolean }>("/api/admin/services/slskd/reset", { method: "POST" })
   }
 }
 

@@ -510,9 +510,9 @@ class MockApi implements MusicApi {
     return this.services.map((s) => ({ ...s }))
   }
 
-  async resetSlskd(): Promise<{ success: boolean; cancelled: number; failed: number }> {
+  async resetSlskd(): Promise<{ success: boolean; cancelled: number; failed: number; restarted: boolean }> {
     await delay(400)
-    return { success: true, cancelled: 0, failed: 0 }
+    return { success: true, cancelled: 0, failed: 0, restarted: true }
   }
 }
 
