@@ -30,7 +30,7 @@ def spotify_status(user: User = Depends(get_current_user), db: DbSession = Depen
 @router.post("/connect")
 def connect_spotify(user: User = Depends(get_current_user)):
     try:
-        return {"authorization_url": spotify_service.authorization_url(user)}
+        return {"authorizationUrl": spotify_service.authorization_url(user)}
     except spotify_service.SpotifyError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
 
