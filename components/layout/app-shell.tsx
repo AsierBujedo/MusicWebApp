@@ -11,7 +11,7 @@ import { LoginScreen } from "@/components/auth/login-screen"
 import { AccountSetupModal } from "@/components/account-setup-modal"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { user, loading, refresh } = useAuth()
+  const { user, loading } = useAuth()
   const { currentTrack } = usePlayer()
 
   if (loading) {
@@ -41,7 +41,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
       <MobileNav />
       <PlayerBar />
-      <AccountSetupModal user={user} onComplete={refresh} />
+      <AccountSetupModal user={user} />
     </div>
   )
 }

@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import useSWR, { useSWRConfig } from "swr"
-import { LogOut, Heart, ListMusic, Inbox, Shield, Moon, Sun, ChevronRight, KeyRound, Music2, Check, Camera } from "lucide-react"
+import { LogOut, Heart, ListMusic, Inbox, Shield, Moon, Sun, ChevronRight, KeyRound, Music2, Check, Camera, Mail } from "lucide-react"
 import Link from "next/link"
 import type { HistoryEntry, Playlist, Track, MusicRequest } from "@/types/api"
 import { api } from "@/lib/api"
@@ -15,6 +15,7 @@ import { ChangePasswordModal } from "@/components/change-password-modal"
 import { Modal } from "@/components/ui/modal"
 import { useToast } from "@/components/providers/toast-provider"
 import type { SpotifyPlaylist, SpotifyStatus } from "@/lib/api-types"
+import { Input } from "@/components/ui/input"
 
 export default function ProfilePage() {
   const { user, isAdmin, logout } = useAuth()
@@ -22,6 +23,9 @@ export default function ProfilePage() {
   const { toast } = useToast()
   const { mutate: globalMutate } = useSWRConfig()
   const [passwordOpen, setPasswordOpen] = React.useState(false)
+  const [emailOpen, setEmailOpen] = React.useState(false)
+  const [email, setEmail] = React.useState("")
+  const [savingEmail, setSavingEmail] = React.useState(false)
   const [spotifyOpen, setSpotifyOpen] = React.useState(false)
   const [selectedSpotifyPlaylists, setSelectedSpotifyPlaylists] = React.useState<string[]>([])
   const [importingSpotify, setImportingSpotify] = React.useState(false)
@@ -79,6 +83,8 @@ export default function ProfilePage() {
     }
   }
   const uploadAvatar = async (file?: File) => { if (!file) return; try { await api.uploadAvatar(file); await globalMutate("auth:me"); toast("Foto de perfil actualizada", "success") } catch { toast("No se pudo subir la foto", "error") } finally { if (avatarInput.current) avatarInput.current.value = "" } }
+  const openEmail = () => { setEmail(user.email ?? ""); setEmailOpen(true) }
+  const saveEmail = async (event: React.FormEvent) => { event.preventDefault(); if (!email.trim()) return; setSavingEmail(true); try { await api.updateProfileEmail(email); await globalMutate("auth:me"); setEmailOpen(false); toast("Correo actualizado", "success") } catch { toast("No se pudo actualizar el correo", "error") } finally { setSavingEmail(false) } }
 
   return (
     <div>
@@ -97,7 +103,7 @@ export default function ProfilePage() {
             )}
           </div>
           <p className="text-sm text-muted-foreground">@{user.username}</p>
-          {user.email && <p className="text-sm text-muted-foreground">{user.email}</p>}
+          <p className="text-sm text-muted-foreground">{user.email ?? "Correo no añadido"}</p>
         </div>
         <Button variant="secondary" onClick={() => logout()} className="gap-2">
           <LogOut className="h-4 w-4" />
@@ -173,11 +179,19 @@ export default function ProfilePage() {
       </div>
 
       <div className="mt-6 space-y-2">
-        <h3 className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Seguridad</h3>
+        <h3 className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Cuenta y seguridad</h3>
         <div className="overflow-hidden rounded-2xl border border-border bg-card">
           <button
-            onClick={() => setPasswordOpen(true)}
+            onClick={openEmail}
             className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-secondary"
+          >
+            <Mail className="h-5 w-5 text-muted-foreground" />
+            <div className="flex-1"><p className="text-sm font-medium">Correo electrónico</p><p className="text-xs text-muted-foreground">{user.email ?? "Añade un correo a tu cuenta"}</p></div>
+            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+          </button>
+          <button
+            onClick={() => setPasswordOpen(true)}
+            className="flex w-full items-center gap-3 border-t border-border px-4 py-3.5 text-left transition-colors hover:bg-secondary"
           >
             <KeyRound className="h-5 w-5 text-muted-foreground" />
             <div className="flex-1">
@@ -194,6 +208,10 @@ export default function ProfilePage() {
       </p>
 
       <ChangePasswordModal open={passwordOpen} onClose={() => setPasswordOpen(false)} />
+
+      <Modal open={emailOpen} onClose={() => !savingEmail && setEmailOpen(false)} title="Correo electrónico" description="Usaremos este correo solo como dato de contacto de tu cuenta.">
+        <form onSubmit={saveEmail} className="space-y-4"><div className="space-y-1.5"><label htmlFor="profile-email" className="text-sm font-medium">Correo electrónico</label><Input id="profile-email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></div><Button type="submit" className="w-full" disabled={savingEmail || !email.trim()}>{savingEmail ? "Guardando…" : "Guardar correo"}</Button></form>
+      </Modal>
 
       <Modal
         open={spotifyOpen}
