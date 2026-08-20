@@ -139,6 +139,7 @@ export interface MusicApi {
   createUser(input: CreateUserInput): Promise<User>
   updateUser(id: string, patch: Partial<User>): Promise<User>
   deleteUser(id: string): Promise<void>
+  updateUserFeatureFlags(id: string, featureFlags: string[]): Promise<User>
   getAllRequests(): Promise<MusicRequest[]>
   setRequestStatus(id: string, status: "APPROVED" | "REJECTED"): Promise<MusicRequest>
   getServices(): Promise<ServiceHealth[]>

@@ -492,6 +492,12 @@ class MockApi implements MusicApi {
     await delay(200)
     this.users = this.users.filter((u) => u.id !== id)
   }
+  async updateUserFeatureFlags(id: string, featureFlags: string[]): Promise<User> {
+    const user = this.users.find((item) => item.id === id)
+    if (!user) throw new ApiError("Usuario no encontrado", 404)
+    user.featureFlags = featureFlags
+    return { ...user }
+  }
 
   async getAllRequests(): Promise<MusicRequest[]> {
     await delay(300)

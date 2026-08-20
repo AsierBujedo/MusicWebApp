@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session as DbSession
 
 from app.config import settings
 from app.core.permissions import require_admin
+from app.core.features import require_feature
 from app.database import get_db
 from app.models.user import User
 from app.services import auth_service
@@ -24,3 +25,10 @@ def get_current_user(request: Request, db: DbSession = Depends(get_db)) -> User:
 def get_current_admin(user: User = Depends(get_current_user)) -> User:
     require_admin(user)
     return user
+
+
+def require_admin_feature(feature_key: str):
+    def dependency(user: User = Depends(get_current_user)) -> User:
+        require_feature(user, feature_key)
+        return user
+    return dependency

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -32,3 +32,12 @@ class User(Base):
 
     sessions = relationship("Session", back_populates="user", cascade="all, delete-orphan")
     playlists = relationship("Playlist", back_populates="owner", cascade="all, delete-orphan")
+    feature_flags = relationship("UserFeatureFlag", cascade="all, delete-orphan")
+
+
+class UserFeatureFlag(Base):
+    __tablename__ = "user_feature_flags"
+    __table_args__ = (UniqueConstraint("user_id", "feature_key", name="uq_user_feature_flag"),)
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+    feature_key: Mapped[str] = mapped_column(String(64), nullable=False)

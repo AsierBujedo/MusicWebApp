@@ -5,6 +5,7 @@ export interface NavItem {
   href: string
   label: string
   icon: LucideIcon
+  feature?: string
 }
 
 // Primary navigation shown in the desktop sidebar.
@@ -29,7 +30,7 @@ export const MOBILE_NAV: NavItem[] = [
 // Admin-only navigation.
 export const ADMIN_NAV: NavItem[] = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/users", label: "Usuarios", icon: Users },
-  { href: "/admin/requests", label: "Solicitudes", icon: Inbox },
-  { href: "/admin/services", label: "Servicios", icon: Radio },
+  { href: "/admin/users", label: "Usuarios", icon: Users, feature: "admin.users" },
+  { href: "/admin/requests", label: "Solicitudes", icon: Inbox, feature: "admin.requests" },
+  { href: "/admin/services", label: "Servicios", icon: Radio, feature: "admin.services" },
 ]

@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session as DbSession
 
 from app.models.base import iso
 from app.models.playlist import Playlist, PlaylistCollaborator
+from app.core.features import effective_features
 from app.models.track import Track
 from app.models.user import User
 
@@ -66,6 +67,7 @@ def user_out(user: User) -> Dict[str, Any]:
             "mustChangePassword": user.must_change_password,
             "active": user.active,
             "lastSeen": iso(user.last_seen),
+            "featureFlags": sorted(effective_features(user)),
         }
     )
 

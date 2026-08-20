@@ -22,6 +22,11 @@ class UserOut(CamelModel):
     auto_approve_requests: bool = False
     active: bool = True
     last_seen: Optional[datetime] = None
+    feature_flags: list[str] = []
+
+
+class UpdateFeatureFlagsInput(CamelModel):
+    feature_flags: list[str] = Field(default_factory=list)
 
 
 class CreateUserInput(CamelModel):

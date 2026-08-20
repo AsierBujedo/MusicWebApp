@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import useSWR, { useSWRConfig } from "swr"
-import { UserPlus, MoreHorizontal, Shield, Trash2, Power, BadgeCheck } from "lucide-react"
+import { UserPlus, MoreHorizontal, Shield, Trash2, Power, BadgeCheck, SlidersHorizontal } from "lucide-react"
 import type { Role, User } from "@/types/api"
 import { api } from "@/lib/api"
 import { useAuth } from "@/components/providers/auth-provider"
@@ -24,6 +24,8 @@ export default function AdminUsersPage() {
   const [creating, setCreating] = React.useState(false)
   const [form, setForm] = React.useState({ username: "", displayName: "", email: "", password: "", role: "USER" as Role, autoApproveRequests: false })
   const [saving, setSaving] = React.useState(false)
+  const [featureTarget, setFeatureTarget] = React.useState<User | null>(null)
+  const [selectedFeatures, setSelectedFeatures] = React.useState<string[]>([])
 
   const users = data ?? []
 
@@ -94,6 +96,19 @@ export default function AdminUsersPage() {
       toast("No se pudo eliminar", "error")
     }
   }
+  const openFeatures = (u: User) => { setFeatureTarget(u); setSelectedFeatures(u.featureFlags ?? []) }
+  const saveFeatures = async () => {
+    if (!featureTarget) return
+    try { await api.updateUserFeatureFlags(featureTarget.id, selectedFeatures); toast("Funciones actualizadas", "success"); setFeatureTarget(null); refresh() }
+    catch { toast("No se pudieron actualizar las funciones", "error") }
+  }
+  const toggleFeature = (key: string) => setSelectedFeatures((items) => items.includes(key) ? items.filter((item) => item !== key) : [...items, key])
+  const featureOptions = [
+    ["admin.users", "Gestionar usuarios", "Crear usuarios normales y activar su autoaprobación."],
+    ["admin.requests", "Moderar solicitudes", "Aprobar o rechazar solicitudes de la comunidad."],
+    ["admin.library", "Biblioteca completa", "Consultar el catálogo completo de canciones."],
+    ["admin.services", "Gestionar servicios", "Ver el estado y ejecutar mantenimiento de servicios."],
+  ] as const
 
   return (
     <div>
@@ -149,18 +164,19 @@ export default function AdminUsersPage() {
                     </Button>
                   }
                 >
-                  <DropdownItem icon={Shield} onClick={() => toggleRole(u)}>
+                  {me?.role === "ADMIN" && <DropdownItem icon={Shield} onClick={() => toggleRole(u)}>
                     {u.role === "ADMIN" ? "Quitar admin" : "Hacer admin"}
-                  </DropdownItem>
-                  <DropdownItem icon={Power} onClick={() => toggleActive(u)}>
+                  </DropdownItem>}
+                  {me?.role === "ADMIN" && u.role === "USER" && <DropdownItem icon={SlidersHorizontal} onClick={() => openFeatures(u)}>Funciones</DropdownItem>}
+                  {me?.role === "ADMIN" && <DropdownItem icon={Power} onClick={() => toggleActive(u)}>
                     {u.active ? "Desactivar" : "Activar"}
-                  </DropdownItem>
+                  </DropdownItem>}
                   {u.role === "USER" && <DropdownItem icon={BadgeCheck} onClick={() => toggleAutoApproval(u)}>
                     {u.autoApproveRequests ? "Quitar autoaprobación" : "Autoaprobar solicitudes"}
                   </DropdownItem>}
-                  <DropdownItem icon={Trash2} destructive onClick={() => remove(u)}>
+                  {me?.role === "ADMIN" && <DropdownItem icon={Trash2} destructive onClick={() => remove(u)}>
                     Eliminar
-                  </DropdownItem>
+                  </DropdownItem>}
                 </Dropdown>
               ) : (
                 <span className="px-2 text-xs text-muted-foreground">Tú</span>
@@ -197,7 +213,7 @@ export default function AdminUsersPage() {
               placeholder="Mínimo 6 caracteres"
             />
           </div>
-          <div className="space-y-1.5">
+          {me?.role === "ADMIN" && <div className="space-y-1.5">
             <span className="text-sm font-medium">Rol</span>
             <div className="flex gap-2">
               {(["USER", "ADMIN"] as Role[]).map((r) => (
@@ -213,7 +229,7 @@ export default function AdminUsersPage() {
                 </button>
               ))}
             </div>
-          </div>
+          </div>}
           {form.role === "USER" && (
             <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border p-3 transition-colors hover:bg-secondary/50">
               <input type="checkbox" checked={form.autoApproveRequests} onChange={(e) => setForm((f) => ({ ...f, autoApproveRequests: e.target.checked }))} className="mt-0.5 h-4 w-4 accent-primary" />
@@ -226,6 +242,12 @@ export default function AdminUsersPage() {
               {saving ? "Creando…" : "Crear usuario"}
             </Button>
           </div>
+        </div>
+      </Modal>
+      <Modal open={Boolean(featureTarget)} onClose={() => setFeatureTarget(null)} title={`Funciones de ${featureTarget?.displayName ?? ""}`} description="Las funciones de usuario habituales están activas para todos. Estas son funciones delegadas de administración.">
+        <div className="space-y-2">
+          {featureOptions.map(([key, label, description]) => <label key={key} className="flex cursor-pointer gap-3 rounded-xl border border-border p-3 hover:bg-secondary/50"><input type="checkbox" checked={selectedFeatures.includes(key)} onChange={() => toggleFeature(key)} className="mt-0.5 h-4 w-4 accent-primary" /><span><span className="block text-sm font-medium">{label}</span><span className="block text-xs text-muted-foreground">{description}</span></span></label>)}
+          <div className="flex gap-3 pt-2"><Button variant="secondary" className="flex-1" onClick={() => setFeatureTarget(null)}>Cancelar</Button><Button className="flex-1" onClick={() => void saveFeatures()}>Guardar</Button></div>
         </div>
       </Modal>
     </div>

@@ -14,6 +14,7 @@ export interface User {
   mustChangePassword?: boolean
   active?: boolean
   lastSeen?: string
+  featureFlags?: string[]
 }
 
 // Availability status shown on search results / tracks.

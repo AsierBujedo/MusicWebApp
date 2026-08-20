@@ -229,6 +229,9 @@ class RealApi implements MusicApi {
   deleteUser(id: string) {
     return request<void>(`/api/admin/users/${id}`, { method: "DELETE" })
   }
+  updateUserFeatureFlags(id: string, featureFlags: string[]) {
+    return request<User>(`/api/admin/users/${id}/features`, { method: "PUT", body: JSON.stringify({ featureFlags }) })
+  }
   getAllRequests() {
     return request<MusicRequest[]>("/api/admin/requests")
   }

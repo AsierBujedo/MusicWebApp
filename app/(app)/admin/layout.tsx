@@ -9,12 +9,13 @@ import { EmptyState } from "@/components/empty-state"
 import { cn } from "@/lib/utils"
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { isAdmin, loading } = useAuth()
+  const { isAdmin, hasFeature, loading } = useAuth()
   const pathname = usePathname()
 
   if (loading) return null
 
-  if (!isAdmin) {
+  const adminItems = ADMIN_NAV.filter((item) => isAdmin || (item.feature && hasFeature(item.feature)))
+  if (!adminItems.length) {
     return (
       <EmptyState
         icon={ShieldAlert}
@@ -36,7 +37,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div>
       {/* Admin sub-navigation for mobile / horizontal contexts */}
       <nav className="mb-6 flex gap-2 overflow-x-auto no-scrollbar md:hidden">
-        {ADMIN_NAV.map((item) => {
+        {adminItems.map((item) => {
           const active = item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href)
           return (
             <Link

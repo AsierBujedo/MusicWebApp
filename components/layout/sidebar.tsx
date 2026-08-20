@@ -9,7 +9,8 @@ import { cn } from "@/lib/utils"
 
 export function Sidebar() {
   const pathname = usePathname()
-  const { isAdmin } = useAuth()
+  const { isAdmin, hasFeature } = useAuth()
+  const adminItems = ADMIN_NAV.filter((item) => isAdmin || (item.feature && hasFeature(item.feature)))
 
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(href + "/"))
 
@@ -39,12 +40,12 @@ export function Sidebar() {
           )
         })}
 
-        {isAdmin && (
+        {adminItems.length > 0 && (
           <div className="pt-4">
             <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Administración
             </p>
-            {ADMIN_NAV.map((item) => {
+            {adminItems.map((item) => {
               const Icon = item.icon
               const active = isActive(item.href)
               return (
@@ -65,11 +66,11 @@ export function Sidebar() {
         )}
       </nav>
 
-      {isAdmin && (
+      {adminItems.length > 0 && (
         <div className="border-t border-border p-3">
           <div className="flex items-center gap-2 rounded-xl bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
             <Shield className="h-4 w-4 text-primary" />
-            Modo administrador
+            {isAdmin ? "Modo administrador" : "Funciones delegadas"}
           </div>
         </div>
       )}

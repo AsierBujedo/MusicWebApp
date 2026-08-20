@@ -8,11 +8,12 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session as DbSession
 
 from app.database import get_db
-from app.dependencies import get_current_admin
+from app.dependencies import get_current_admin, require_admin_feature
+from app.core.features import ADMIN_FEATURES
 from app.models.music_request import MusicRequest
 from app.models.track import Track
-from app.models.user import User
-from app.schemas.user import CreateUserInput, UpdateUserInput
+from app.models.user import User, UserFeatureFlag
+from app.schemas.user import CreateUserInput, UpdateUserInput, UpdateFeatureFlagsInput
 from app.services import event_service, request_service, user_service
 from app.services.integrations import (
     get_droppedneedle_client,
@@ -64,14 +65,16 @@ def all_tracks(_admin: User = Depends(get_current_admin), db: DbSession = Depend
 # ------------------------------- Users -------------------------------
 
 @router.get("/users")
-def list_users(_admin: User = Depends(get_current_admin), db: DbSession = Depends(get_db)):
+def list_users(_admin: User = Depends(require_admin_feature("admin.users")), db: DbSession = Depends(get_db)):
     return [user_out(u) for u in user_service.list_users(db)]
 
 
 @router.post("/users", status_code=status.HTTP_201_CREATED)
 def create_user(
-    payload: CreateUserInput, _admin: User = Depends(get_current_admin), db: DbSession = Depends(get_db)
+    payload: CreateUserInput, actor: User = Depends(require_admin_feature("admin.users")), db: DbSession = Depends(get_db)
 ):
+    if actor.role != "ADMIN" and payload.role != "USER":
+        raise HTTPException(status_code=403, detail="No puedes crear administradores")
     try:
         user = user_service.create_user(
             db,
@@ -111,6 +114,22 @@ def update_user(
         auto_approve_requests=payload.auto_approve_requests,
         active=payload.active,
     )
+    return user_out(user)
+
+
+@router.put("/users/{user_id}/features")
+def update_feature_flags(user_id: str, payload: UpdateFeatureFlagsInput, admin: User = Depends(get_current_admin), db: DbSession = Depends(get_db)):
+    user = user_service.get_user(db, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.role == "ADMIN":
+        raise HTTPException(status_code=400, detail="Los administradores ya tienen todas las funciones")
+    requested = set(payload.feature_flags)
+    if not requested.issubset(ADMIN_FEATURES):
+        raise HTTPException(status_code=400, detail="Feature flag no válida")
+    db.query(UserFeatureFlag).filter(UserFeatureFlag.user_id == user.id).delete()
+    db.add_all([UserFeatureFlag(user_id=user.id, feature_key=key) for key in requested])
+    db.commit(); db.refresh(user)
     return user_out(user)
 
 

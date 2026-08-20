@@ -9,6 +9,7 @@ interface AuthContextValue {
   user: User | null
   loading: boolean
   isAdmin: boolean
+  hasFeature: (feature: string) => boolean
   login: (username: string, password: string) => Promise<User>
   logout: () => Promise<void>
   refresh: () => void
@@ -42,6 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     loading: isLoading,
     isAdmin: user?.role === "ADMIN",
+    hasFeature: (feature) => user?.role === "ADMIN" || Boolean(user?.featureFlags?.includes(feature)),
     login,
     logout,
     refresh: () => mutate(),
