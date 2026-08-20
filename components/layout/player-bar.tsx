@@ -87,7 +87,7 @@ export function PlayerBar() {
   const fav = isFavorite(currentTrack.id)
 
   const RepeatIcon = repeat === "one" ? Repeat1 : Repeat
-  const actions = <Dropdown trigger={<Button variant="secondary" size="icon" className="h-11 w-11 rounded-full" aria-label="Acciones de la canción"><MoreHorizontal className="h-6 w-6" /></Button>}>
+  const actions = <Dropdown side="top" trigger={<Button variant="secondary" size="icon" className="h-11 w-11 rounded-full" aria-label="Acciones de la canción"><MoreHorizontal className="h-6 w-6" /></Button>}>
     <DropdownItem icon={Plus} onClick={() => { enqueue(currentTrack); toast("Añadida a continuación en la cola", "success") }}>Añadir a la cola</DropdownItem>
     <DropdownItem icon={ListPlus} onClick={() => addToPlaylist(currentTrack)}>Añadir a playlist</DropdownItem>
     <DropdownItem icon={Heart} onClick={() => toggleFavorite(currentTrack)}>{fav ? "Quitar de favoritos" : "Añadir a favoritos"}</DropdownItem>

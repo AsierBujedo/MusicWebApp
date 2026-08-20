@@ -7,10 +7,11 @@ interface DropdownProps {
   trigger: React.ReactNode
   children: React.ReactNode
   align?: "start" | "end"
+  side?: "top" | "bottom"
   className?: string
 }
 
-export function Dropdown({ trigger, children, align = "end", className }: DropdownProps) {
+export function Dropdown({ trigger, children, align = "end", side = "bottom", className }: DropdownProps) {
   const [open, setOpen] = React.useState(false)
   const ref = React.useRef<HTMLDivElement>(null)
 
@@ -31,7 +32,8 @@ export function Dropdown({ trigger, children, align = "end", className }: Dropdo
           role="menu"
           onClick={() => setOpen(false)}
           className={cn(
-            "absolute z-50 mt-2 min-w-48 overflow-hidden rounded-2xl border border-border bg-popover p-1.5 shadow-xl animate-in",
+            "absolute z-50 min-w-48 overflow-hidden rounded-2xl border border-border bg-popover p-1.5 shadow-xl animate-in",
+            side === "top" ? "bottom-full mb-2" : "top-full mt-2",
             align === "end" ? "right-0" : "left-0",
             className,
           )}
