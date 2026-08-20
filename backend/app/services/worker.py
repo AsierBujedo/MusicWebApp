@@ -41,30 +41,20 @@ async def _advance_once() -> None:
                 )
             ).order_by(MusicRequest.created_at.asc())
         ).all())
-        max_concurrent = max(1, settings.max_concurrent_download_requests)
-        in_flight = sum(req.status in {"SEARCHING", "DOWNLOADING"} for req in active)
-        for req in active:
-            try:
-                # APPROVED means queued locally. Only hand the next item to
-                # DroppedNeedle once the current acquisition has reached a
-                # terminal state, avoiding overlapping Soulseek searches and
-                # downloads in a small homelab.
-                if req.status == "APPROVED" and in_flight >= max_concurrent:
-                    continue
-
-                previous_status = req.status
-                await _advance_request(db, req)
-                if previous_status == "APPROVED" and req.status in {"SEARCHING", "DOWNLOADING"}:
-                    in_flight += 1
-                elif previous_status in {"SEARCHING", "DOWNLOADING"} and req.status not in {"SEARCHING", "DOWNLOADING"}:
-                    in_flight = max(0, in_flight - 1)
-                elif previous_status == "FAILED" and req.status == "APPROVED":
-                    # A scheduled retry has claimed the next slot; it will be
-                    # submitted on the following worker pass.
-                    in_flight += 1
-            except Exception:
-                logger.exception("Failed advancing request %s", req.id)
-                db.rollback()
+        # Exactly one request can own DroppedNeedle/Soulseek at a time.  Keep
+        # polling that request until it resolves; only then claim the oldest
+        # approved item.  This is intentionally independent of the old env
+        # setting so a stale deployment cannot accidentally run in parallel.
+        in_flight = next((req for req in active if req.status in {"SEARCHING", "DOWNLOADING"}), None)
+        due_retry = next((req for req in active if req.status == "FAILED" and req.soulseek_retry_at and req.soulseek_retry_at <= now), None)
+        next_request = in_flight or due_retry or next((req for req in active if req.status == "APPROVED"), None)
+        if next_request is None:
+            return
+        try:
+            await _advance_request(db, next_request)
+        except Exception:
+            logger.exception("Failed advancing request %s", next_request.id)
+            db.rollback()
     finally:
         db.close()
 
@@ -255,6 +245,24 @@ async def _fail(db, req: MusicRequest, message: str) -> None:
         )
         return
 
+    rejected_by_droppedneedle = "droppedneedle no acept" in message.casefold() or "droppedneedle respondi" in message.casefold()
+    if rejected_by_droppedneedle:
+        req.soulseek_retry_count += 1
+        if req.soulseek_retry_count <= 2:
+            # Two quick submission retries are useful for a transient API or
+            # catalog race.  Requeue as APPROVED; the serial worker will pick
+            # it again on its next pass, before any later request.
+            req = request_service.transition(db, req, "FAILED", error_message=f"DroppedNeedle no aceptó la solicitud. Reintentando ({req.soulseek_retry_count}/2)…")
+            req.external_id = None
+            req = request_service.transition(db, req, "APPROVED", error_message=None)
+            await event_service.emit_request_updated(request_id=req.id, status=req.status, progress=req.progress, owner_user_id=req.requested_by)
+            return
+        retry_at = utcnow() + _SOULSEEK_RETRY_DELAY
+        req.soulseek_retry_at = retry_at
+        req = request_service.transition(db, req, "FAILED", error_message="DroppedNeedle no aceptó la solicitud tras dos reintentos. Se reintentará automáticamente en una hora.")
+        await event_service.emit_request_updated(request_id=req.id, status=req.status, progress=req.progress, owner_user_id=req.requested_by)
+        return
+
     req = request_service.transition(db, req, "FAILED", error_message=message)
     track = db.get(Track, req.track_id)
     if track is not None:
@@ -268,9 +276,12 @@ async def _fail(db, req: MusicRequest, message: str) -> None:
 
 
 async def _resume_soulseek_retry(db, req: MusicRequest) -> None:
-    """Turn a due retry back into a fresh DroppedNeedle submission."""
+    """Return a due retry to the tail of the FIFO queue."""
     req.external_id = None
     req.soulseek_retry_at = None
+    # It re-enters the queue now, rather than overtaking requests accepted
+    # while it was waiting for its scheduled retry.
+    req.created_at = utcnow()
     req = request_service.transition(db, req, "APPROVED", error_message=None)
     logger.info("Resuming scheduled Soulseek retry for request %s", req.id)
     await event_service.emit_request_updated(

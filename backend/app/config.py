@@ -76,9 +76,9 @@ class Settings(BaseSettings):
 
     # ---- Background worker ----
     request_poll_interval_seconds: int = Field(default=10, alias="REQUEST_POLL_INTERVAL_SECONDS")
-    # Keep the homelab acquisition pipeline predictable. Additional approved
-    # requests stay queued once five DroppedNeedle acquisitions are active.
-    max_concurrent_download_requests: int = Field(default=5, alias="MAX_CONCURRENT_DOWNLOAD_REQUESTS")
+    # The acquisition pipeline is deliberately serial: one Soulseek/DroppedNeedle
+    # job at a time, in arrival order, to avoid provider contention.
+    max_concurrent_download_requests: int = Field(default=1, alias="MAX_CONCURRENT_DOWNLOAD_REQUESTS")
 
     # Shared with Navidrome. Manual imports are written here so they remain in
     # the normal music library and are indexed on Navidrome's next scan.
