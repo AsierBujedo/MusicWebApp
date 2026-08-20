@@ -19,6 +19,7 @@ interface PlayerContextValue {
   expanded: boolean
   play: (track: Track, queue?: Track[]) => void
   playQueue: (tracks: Track[], startIndex?: number) => void
+  enqueue: (track: Track) => void
   togglePlay: () => void
   next: () => void
   prev: () => void
@@ -76,6 +77,14 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   }, [start])
 
   const playQueue = React.useCallback((tracks: Track[], startIndex = 0) => start(tracks, startIndex), [start])
+  const enqueue = React.useCallback((track: Track) => {
+    if (track.status !== "AVAILABLE") return
+    setQueue((current) => {
+      const nextQueue = [...current]
+      nextQueue.splice(Math.min(index + 1, nextQueue.length), 0, track)
+      return nextQueue
+    })
+  }, [index])
 
   const playRandomFromHistory = React.useCallback(async () => {
     try {
@@ -327,6 +336,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     expanded,
     play,
     playQueue,
+    enqueue,
     togglePlay,
     next,
     prev,

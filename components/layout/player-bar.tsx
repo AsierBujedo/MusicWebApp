@@ -14,11 +14,17 @@ import {
   ChevronDown,
   Heart,
   ListMusic,
+  MoreHorizontal,
+  ListPlus,
+  Plus,
 } from "lucide-react"
 import { usePlayer } from "@/components/providers/player-provider"
 import { useLibrary } from "@/components/providers/library-provider"
 import { CoverImage } from "@/components/cover-image"
 import { cn, formatDuration } from "@/lib/utils"
+import { Dropdown, DropdownItem } from "@/components/ui/dropdown"
+import { Button } from "@/components/ui/button"
+import { useToast } from "@/components/providers/toast-provider"
 
 function ProgressBar({
   value,
@@ -72,13 +78,20 @@ export function PlayerBar() {
     toggleShuffle,
     expanded,
     setExpanded,
+    enqueue,
   } = usePlayer()
-  const { isFavorite, toggleFavorite } = useLibrary()
+  const { isFavorite, toggleFavorite, addToPlaylist } = useLibrary()
+  const { toast } = useToast()
 
   if (!currentTrack) return null
   const fav = isFavorite(currentTrack.id)
 
   const RepeatIcon = repeat === "one" ? Repeat1 : Repeat
+  const actions = <Dropdown trigger={<Button variant="ghost" size="icon-sm" aria-label="Acciones de la canción"><MoreHorizontal className="h-5 w-5" /></Button>}>
+    <DropdownItem icon={Plus} onClick={() => { enqueue(currentTrack); toast("Añadida a continuación en la cola", "success") }}>Añadir a la cola</DropdownItem>
+    <DropdownItem icon={ListPlus} onClick={() => addToPlaylist(currentTrack)}>Añadir a playlist</DropdownItem>
+    <DropdownItem icon={Heart} onClick={() => toggleFavorite(currentTrack)}>{fav ? "Quitar de favoritos" : "Añadir a favoritos"}</DropdownItem>
+  </Dropdown>
 
   const Controls = ({ size = "md" }: { size?: "md" | "lg" }) => (
     <div className="flex items-center justify-center gap-2 sm:gap-4">
@@ -137,6 +150,7 @@ export function PlayerBar() {
               <p className="truncate text-xs text-muted-foreground">{currentTrack.artist}</p>
             </div>
           </button>
+          <div className="shrink-0 md:hidden">{actions}</div>
 
           <button
             onClick={() => toggleFavorite(currentTrack)}
@@ -165,6 +179,7 @@ export function PlayerBar() {
               <ProgressBar value={muted ? 0 : volume * 100} max={100} onSeek={(v) => setVolume(v / 100)} />
             </div>
           </div>
+          <div className="hidden md:block">{actions}</div>
 
           {/* Mobile play button */}
           <button
@@ -189,7 +204,7 @@ export function PlayerBar() {
               <ChevronDown className="h-6 w-6" />
             </button>
             <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Reproduciendo</span>
-            <span className="w-6" />
+            <div>{actions}</div>
           </div>
 
           <div className="flex flex-1 flex-col items-center justify-center gap-8 px-6">
