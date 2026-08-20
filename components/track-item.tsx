@@ -1,14 +1,20 @@
 "use client"
 
-import { Play, Pause, Download, Heart, MoreHorizontal, ListPlus, Loader2, Trash2 } from "lucide-react"
-import type { Track } from "@/types/api"
+import { Play, Pause, Download, Heart, MoreHorizontal, ListPlus, Loader2, Trash2, CircleStop } from "lucide-react"
+import type { MusicRequest, Track } from "@/types/api"
 import { cn, formatDuration } from "@/lib/utils"
+import { api } from "@/lib/api"
 import { usePlayer } from "@/components/providers/player-provider"
 import { useLibrary } from "@/components/providers/library-provider"
+import { useAuth } from "@/components/providers/auth-provider"
+import { useToast } from "@/components/providers/toast-provider"
 import { StatusBadge } from "@/components/status-badge"
 import { CoverImage } from "@/components/cover-image"
 import { Button } from "@/components/ui/button"
 import { Dropdown, DropdownItem } from "@/components/ui/dropdown"
+import useSWR, { useSWRConfig } from "swr"
+
+const cancellableRequestStatuses = new Set<MusicRequest["status"]>(["APPROVED", "SEARCHING", "DOWNLOADING"])
 
 export function TrackItem({
   track,
@@ -23,15 +29,35 @@ export function TrackItem({
 }) {
   const { play, currentTrack, isPlaying, togglePlay } = usePlayer()
   const { isFavorite, toggleFavorite, requestTrack, addToPlaylist } = useLibrary()
+  const { isAdmin } = useAuth()
+  const { toast } = useToast()
+  const { mutate } = useSWRConfig()
+  const { data: ownRequests } = useSWR("requests", () => api.getRequests())
+  const { data: allRequests } = useSWR(isAdmin ? "admin:requests" : null, () => api.getAllRequests())
 
   const isCurrent = currentTrack?.id === track.id
   const fav = isFavorite(track.id)
   const available = track.status === "AVAILABLE"
+  const activeRequest = (isAdmin ? allRequests : ownRequests)?.find(
+    (request) => request.trackId === track.id && cancellableRequestStatuses.has(request.status),
+  )
 
   const handlePrimary = () => {
     if (!available) return
     if (isCurrent) togglePlay()
     else play(track, queue)
+  }
+
+  const handleCancel = async () => {
+    if (!activeRequest) return
+    try {
+      await api.cancelRequest(activeRequest.id)
+      toast("Descarga anulada", "info")
+      mutate("requests")
+      mutate("admin:requests")
+    } catch {
+      toast("No se pudo anular la descarga", "error")
+    }
   }
 
   return (
@@ -71,7 +97,17 @@ export function TrackItem({
       </div>
 
       <div className="flex items-center gap-1">
-        {available ? (
+        {activeRequest ? (
+          <Button
+            size="icon-sm"
+            variant="secondary"
+            onClick={() => void handleCancel()}
+            aria-label="Anular descarga"
+            title="Anular descarga"
+          >
+            <CircleStop className="h-4 w-4 text-destructive" />
+          </Button>
+        ) : available ? (
           <span className="hidden w-12 text-right text-xs tabular-nums text-muted-foreground sm:block">
             {formatDuration(track.duration)}
           </span>
@@ -99,9 +135,14 @@ export function TrackItem({
           <DropdownItem icon={ListPlus} onClick={() => addToPlaylist(track)}>
             Añadir a playlist
           </DropdownItem>
-          {!available && track.status !== "DOWNLOADING" && (
+          {!activeRequest && !available && track.status !== "DOWNLOADING" && (
             <DropdownItem icon={Download} onClick={() => requestTrack(track)}>
               Solicitar
+            </DropdownItem>
+          )}
+          {activeRequest && (
+            <DropdownItem icon={CircleStop} destructive onClick={() => void handleCancel()}>
+              Anular descarga
             </DropdownItem>
           )}
           {onRemove && (
