@@ -184,8 +184,11 @@ async def list_playlists(db: DbSession, user: User) -> list[dict[str, Any]]:
             images = item.get("images") if isinstance(item.get("images"), list) else []
             image = next((entry.get("url") for entry in images if isinstance(entry, dict) and entry.get("url")), None)
             owner = item.get("owner") if isinstance(item.get("owner"), dict) else {}
-            tracks = item.get("tracks") if isinstance(item.get("tracks"), dict) else {}
-            result.append({"id": str(item["id"]), "name": str(item["name"]), "description": item.get("description"), "image": image, "track_count": int(tracks.get("total") or 0), "owner_name": owner.get("display_name")})
+            # Spotify's current response exposes the count as ``items.total``;
+            # ``tracks`` remains only as a deprecated compatibility field.
+            collection = item.get("items") if isinstance(item.get("items"), dict) else item.get("tracks")
+            collection = collection if isinstance(collection, dict) else {}
+            result.append({"id": str(item["id"]), "name": str(item["name"]), "description": item.get("description"), "image": image, "track_count": int(collection.get("total") or 0), "owner_name": owner.get("display_name")})
         if not payload.get("next"):
             break
         offset += len(items)
