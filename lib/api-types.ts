@@ -113,7 +113,6 @@ export interface MusicApi {
   reorderPlaylist(id: string, trackIds: string[]): Promise<Playlist>
   addPlaylistCollaborator(id: string, username: string): Promise<Playlist>
   removePlaylistCollaborator(id: string, username: string): Promise<Playlist>
-  uploadPlaylistCover(id: string, file: File): Promise<Playlist>
   resetPlaylistCover(id: string): Promise<Playlist>
   setPlaylistCoverFromTrack(id: string, trackId: string): Promise<Playlist>
 

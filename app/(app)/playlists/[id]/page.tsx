@@ -51,11 +51,6 @@ export default function PlaylistDetailPage() {
       toast("Persona añadida", "success")
     } catch { toast("No se pudo añadir a esa persona", "error") }
   }
-  const uploadCover = async (file?: File) => {
-    if (!data || !file) return
-    try { await api.uploadPlaylistCover(data.id, file); mutate(); globalMutate("playlists") }
-    catch { toast("No se pudo subir la portada", "error") }
-  }
   const chooseTrackCover = async (trackId: string) => { if (!data) return; try { await api.setPlaylistCoverFromTrack(data.id, trackId); mutate(); globalMutate("playlists"); setCoverPicker(false) } catch { toast("No se pudo cambiar la portada", "error") } }
   const resetCover = async () => { if (!data) return; try { await api.resetPlaylistCover(data.id); mutate(); globalMutate("playlists") } catch { toast("No se pudo restablecer la portada", "error") } }
   const removeCollaborator = async (username: string) => {
@@ -163,11 +158,7 @@ export default function PlaylistDetailPage() {
                 <Button variant="ghost" size="icon" aria-label="Compartir playlist" onClick={() => setSharing(true)}>
                   <Share2 className="h-5 w-5" />
                 </Button>
-                <label className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-md hover:bg-secondary" aria-label="Cambiar portada">
-                  <ImagePlus className="h-5 w-5" />
-                  <input className="hidden" type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => uploadCover(e.target.files?.[0])} />
-                </label>
-                <Button variant="ghost" size="icon" aria-label="Elegir portada" onClick={() => setCoverPicker(true)}><ImagePlus className="h-5 w-5" /></Button>
+                <Button variant="ghost" size="icon" aria-label="Elegir carátula de una canción" onClick={() => setCoverPicker(true)}><ImagePlus className="h-5 w-5" /></Button>
                 <Button variant="ghost" size="sm" onClick={() => void resetCover()}>Restablecer</Button>
               </>}
             </div>

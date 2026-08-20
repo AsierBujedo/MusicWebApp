@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session as DbSession
 
@@ -129,25 +129,6 @@ def remove_collaborator(playlist_id: str, username: str, user: User = Depends(ge
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     return playlist_out(db, pl)
 
-
-@router.post("/{playlist_id}/cover", response_model=PlaylistOut)
-async def upload_cover(playlist_id: str, file: UploadFile = File(...), user: User = Depends(get_current_user), db: DbSession = Depends(get_db)):
-    pl = _load_editable(db, playlist_id, user)
-    if file.content_type not in {"image/jpeg", "image/png", "image/webp"}:
-        raise HTTPException(status_code=400, detail="La portada debe ser JPG, PNG o WebP")
-    payload = await file.read()
-    if len(payload) > 5 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="La portada supera 5 MB")
-    ext = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}[file.content_type]
-    directory = Path("data/playlist-covers")
-    directory.mkdir(parents=True, exist_ok=True)
-    target = directory / f"{pl.id}.{ext}"
-    target.write_bytes(payload)
-    pl.cover = f"/api/playlists/{pl.id}/cover"
-    pl.custom_cover_path = str(target)
-    db.commit()
-    db.refresh(pl)
-    return playlist_out(db, pl)
 
 @router.post("/{playlist_id}/cover/reset", response_model=PlaylistOut)
 def reset_cover(playlist_id: str, user: User = Depends(get_current_user), db: DbSession = Depends(get_db)):
