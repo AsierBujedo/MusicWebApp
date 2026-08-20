@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import useSWR, { useSWRConfig } from "swr"
 import { LogOut, Heart, ListMusic, Inbox, Shield, Moon, Sun, ChevronRight, KeyRound, Music2, Check, Camera, Mail } from "lucide-react"
 import Link from "next/link"
@@ -18,6 +19,8 @@ import type { SpotifyPlaylist, SpotifyStatus } from "@/lib/api-types"
 import { Input } from "@/components/ui/input"
 
 export default function ProfilePage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const { user, isAdmin, logout } = useAuth()
   const { theme, toggle } = useTheme()
   const { toast } = useToast()
@@ -43,6 +46,27 @@ export default function ProfilePage() {
     spotifyOpen && spotifyStatus?.connected ? "spotify:playlists" : null,
     () => api.getSpotifyPlaylists(),
   )
+
+  React.useEffect(() => {
+    const outcome = searchParams.get("spotify")
+    if (!outcome) return
+    if (outcome === "connected") {
+      // Wait for the fresh status request; otherwise the query would be
+      // removed before the OAuth connection is visible to the frontend.
+      if (!spotifyStatus) return
+      if (spotifyStatus.connected) {
+        setSpotifyOpen(true)
+        toast("Spotify conectado. Elige las playlists que quieres importar.", "success")
+      } else {
+        toast("Spotify se conectó, pero no pudimos recuperar la sesión", "error")
+      }
+    } else if (outcome === "error") {
+      toast("No se pudo completar la conexión con Spotify", "error")
+    } else if (outcome === "denied") {
+      toast("Cancelaste la conexión con Spotify", "info")
+    }
+    router.replace("/profile")
+  }, [router, searchParams, spotifyStatus?.connected, toast])
 
   if (!user) return null
 
