@@ -157,6 +157,13 @@ class RealApi implements MusicApi {
   removePlaylistCollaborator(id: string, username: string) {
     return request<Playlist>(`/api/playlists/${id}/collaborators/${encodeURIComponent(username)}`, { method: "DELETE" })
   }
+  async uploadPlaylistCover(id: string, file: File) {
+    const form = new FormData()
+    form.append("file", file)
+    const res = await fetch(`${BASE}/api/playlists/${id}/cover`, { method: "POST", credentials: "include", body: form })
+    if (!res.ok) throw new ApiError("No se pudo subir la portada", res.status)
+    return res.json() as Promise<Playlist>
+  }
   resetPlaylistCover(id: string) { return request<Playlist>(`/api/playlists/${id}/cover/reset`, {method:"POST"}) }
   setPlaylistFallbackCover(id: string, coverNumber: number) { return request<Playlist>(`/api/playlists/${id}/cover/fallback/${coverNumber}`, {method:"POST"}) }
   getArtistCatalog(id: string, name?: string) {

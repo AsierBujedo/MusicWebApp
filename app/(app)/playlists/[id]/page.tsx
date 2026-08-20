@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useParams, useRouter } from "next/navigation"
 import useSWR, { useSWRConfig } from "swr"
-import { Play, Shuffle, Trash2, ArrowLeft, Music, Share2, ImagePlus, X, Users } from "lucide-react"
+import { Play, Shuffle, Trash2, ArrowLeft, Music, Share2, ImagePlus, X, Users, Camera } from "lucide-react"
 import type { Playlist, Track } from "@/types/api"
 import { api, ApiError } from "@/lib/api"
 import { usePlayer } from "@/components/providers/player-provider"
@@ -52,6 +52,7 @@ export default function PlaylistDetailPage() {
     } catch { toast("No se pudo añadir a esa persona", "error") }
   }
   const chooseFallbackCover = async (coverNumber: number) => { if (!data) return; try { const playlist = await api.setPlaylistFallbackCover(data.id, coverNumber); mutate(playlist, false); globalMutate("playlists"); setCoverPicker(false) } catch { toast("No se pudo cambiar la portada", "error") } }
+  const uploadCover = async (file?: File) => { if (!data || !file) return; try { const playlist = await api.uploadPlaylistCover(data.id, file); mutate(playlist, false); globalMutate("playlists") } catch { toast("No se pudo subir la portada", "error") } }
   const resetCover = async () => { if (!data) return; try { const playlist = await api.resetPlaylistCover(data.id); mutate(playlist, false); globalMutate("playlists") } catch { toast("No se pudo restablecer la portada", "error") } }
   const removeCollaborator = async (username: string) => {
     if (!data) return
@@ -125,7 +126,10 @@ export default function PlaylistDetailPage() {
         </div>
       ) : data ? (
         <div className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end">
-          <CoverImage src={data.cover} alt={data.name} className="h-40 w-40 shadow-xl sm:h-48 sm:w-48" />
+          <div className="flex w-40 shrink-0 flex-col gap-2 sm:w-48">
+            <CoverImage src={data.cover} alt={data.name} className="h-40 w-40 shadow-xl sm:h-48 sm:w-48" />
+            {isOwner && <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"><Camera className="h-4 w-4" />Subir portada<input className="hidden" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => uploadCover(event.target.files?.[0])} /></label>}
+          </div>
           <div className="flex-1">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Playlist</p>
             <h1 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl text-balance">{data.name}</h1>
