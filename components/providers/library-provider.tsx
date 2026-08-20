@@ -72,6 +72,7 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
       setRequestTarget(null)
       mutate("requests")
       mutate((key) => typeof key === "string" && key.startsWith("search:"))
+      mutate((key) => typeof key === "string" && key.startsWith("playlist:"))
     } catch (e) {
       toast(friendlyError(e), "error")
     } finally {

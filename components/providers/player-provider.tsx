@@ -42,6 +42,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [repeat, setRepeat] = React.useState<RepeatMode>("off")
   const [shuffle, setShuffle] = React.useState(false)
   const [expanded, setExpanded] = React.useState(false)
+  const [playbackSession, setPlaybackSession] = React.useState(0)
   const audioRef = React.useRef<HTMLAudioElement | null>(null)
   const mediaControlsRef = React.useRef({
     next: () => {},
@@ -62,8 +63,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       setIndex(finalIndex === -1 ? 0 : finalIndex)
       setPosition(0)
       setIsPlaying(true)
-      const track = finalList[finalIndex === -1 ? 0 : finalIndex]
-      if (track) api.recordPlay(track.id).catch(() => {})
+      setPlaybackSession((session) => session + 1)
     },
     [],
   )
@@ -163,6 +163,14 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   )
   const toggleShuffle = React.useCallback(() => setShuffle((s) => !s), [])
 
+  // A queue transition changes `currentTrack` without calling `start`. Record
+  // it here so every automatically played playlist track participates in the
+  // user's history and can be selected after the playlist reaches its end.
+  React.useEffect(() => {
+    if (!currentTrack || !isPlaying) return
+    api.recordPlay(currentTrack.id).catch(() => {})
+  }, [currentTrack?.id, playbackSession])
+
   // Keep lock-screen handlers current without unregistering and registering
   // them on every audio `timeupdate`. Safari can otherwise lose the previous /
   // next-track actions while the phone is locked.
@@ -186,13 +194,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           if (repeat === "one") return 0
           // schedule advancing to the next track
           window.setTimeout(() => {
-            setIndex((i) => {
-              if (shuffle) return Math.floor(Math.random() * queue.length)
-              if (i < queue.length - 1) return i + 1
-              if (repeat === "all") return 0
-              setIsPlaying(false)
-              return i
-            })
+            next()
           }, 0)
           return 0
         }
@@ -200,7 +202,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       })
     }, 500)
     return () => window.clearInterval(id)
-  }, [isPlaying, currentTrack, duration, repeat, shuffle, queue.length])
+  }, [isPlaying, currentTrack, duration, repeat, next])
 
   // Real playback (backend stream) via the <audio> element.
   React.useEffect(() => {

@@ -186,9 +186,11 @@ class MockApi implements MusicApi {
 
   async retryRequest(id: string): Promise<MusicRequest> {
     await delay(300)
+    const me = this.me()
     const req = this.requests.find((r) => r.id === id)
     if (!req) throw new ApiError("No encontramos esta solicitud.", 404)
-    req.status = "PENDING"
+    const autoApprover = me.role === "ADMIN" || Boolean(me.autoApproveRequests)
+    req.status = autoApprover && req.status === "FAILED" ? "APPROVED" : "PENDING"
     req.progress = undefined
     this.advanceRequest(req.id, 0)
     return { ...req }

@@ -18,6 +18,11 @@ def is_admin(user: User) -> bool:
     return user.role == ROLE_ADMIN
 
 
+def can_auto_approve(user: User) -> bool:
+    """Whether a user may bypass the moderation queue for a retry/request."""
+    return is_admin(user) or user.auto_approve_requests
+
+
 def require_admin(user: User) -> None:
     if not is_admin(user):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")

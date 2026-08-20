@@ -27,6 +27,13 @@ export default function PlaylistDetailPage() {
   const { data, error, isLoading, mutate } = useSWR<Playlist>(
     id ? `playlist:${id}` : null,
     () => api.getPlaylist(id),
+    {
+      // SSE normally refreshes this cache immediately. Poll only while the
+      // playlist has pending downloads as a resilient fallback for a mobile
+      // browser/PWA that temporarily drops its EventSource connection.
+      refreshInterval: (playlist) =>
+        playlist?.tracks?.some((track) => track.status === "PENDING" || track.status === "DOWNLOADING") ? 5_000 : 0,
+    },
   )
 
   const [confirmDelete, setConfirmDelete] = React.useState(false)

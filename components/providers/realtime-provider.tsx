@@ -30,6 +30,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       if (event.type === "track.updated") {
         mutate((key) => typeof key === "string" && key.startsWith("search:"))
         mutate((key) => typeof key === "string" && key.startsWith("track:"))
+        mutate((key) => typeof key === "string" && key.startsWith("playlist:"))
       }
     })
     return unsubscribe

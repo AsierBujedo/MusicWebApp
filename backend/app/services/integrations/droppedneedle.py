@@ -248,11 +248,32 @@ class RealDroppedNeedleClient:
                     body["musicbrainz_id"] = provider_id
                 response = await self._request("POST", "/api/v1/requests/new", json=body)
             data = self._payload(response)
-            external_id = data.get("task_id") or data.get("taskId") or data.get("id") or data.get("request_id")
-            return {"accepted": bool(external_id), "external_id": str(external_id) if external_id else None, "raw": data}
+            task = data.get("task") or data.get("download") or {}
+            task = task if isinstance(task, dict) else {}
+            external_id = (
+                data.get("task_id")
+                or data.get("taskId")
+                or data.get("id")
+                or data.get("request_id")
+                or task.get("task_id")
+                or task.get("taskId")
+                or task.get("id")
+            )
+            if not external_id:
+                logger.warning("DroppedNeedle accepted no task identifier: %s", data)
+            return {
+                "accepted": bool(external_id),
+                "external_id": str(external_id) if external_id else None,
+                "reason": "DroppedNeedle no devolvió un identificador de descarga" if not external_id else None,
+            }
+        except httpx.HTTPStatusError as exc:
+            response = exc.response
+            detail = response.text[:500].replace("\n", " ")
+            logger.warning("DroppedNeedle request rejected: status=%s body=%s", response.status_code, detail)
+            return {"accepted": False, "external_id": None, "reason": f"DroppedNeedle respondió HTTP {response.status_code}"}
         except Exception:
             logger.warning("DroppedNeedle request submission failed", exc_info=True)
-            return {"accepted": False, "external_id": None}
+            return {"accepted": False, "external_id": None, "reason": "No se pudo contactar con DroppedNeedle"}
 
     async def get_status(self, external_id: str) -> dict:
         try:

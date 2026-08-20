@@ -58,6 +58,8 @@ export function TrackItem({
       toast("Descarga anulada", "info")
       mutate("requests")
       mutate("admin:requests")
+      mutate((key) => typeof key === "string" && key.startsWith("playlist:"))
+      mutate((key) => typeof key === "string" && key.startsWith("search:"))
     } catch {
       toast("No se pudo anular la descarga", "error")
     }

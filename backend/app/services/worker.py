@@ -31,6 +31,7 @@ _SOULSEEK_NO_MATCH = "no matching release found on soulseek"
 async def _advance_once() -> None:
     db = SessionLocal()
     try:
+        await _reconcile_completed_tracks(db)
         now = utcnow()
         active = list(db.scalars(
             select(MusicRequest).where(
@@ -68,6 +69,37 @@ async def _advance_once() -> None:
         db.close()
 
 
+async def _reconcile_completed_tracks(db) -> None:
+    """Repair an interrupted final state without requiring a page refresh.
+
+    A request is transitioned to AVAILABLE only after Navidrome produced a
+    playable match. Should a process restart between the track and request
+    commits, the request can be terminal while the playlist copy still shows
+    DOWNLOADING. Reconcile that small window on every worker pass.
+    """
+    stale = list(
+        db.scalars(
+            select(MusicRequest).where(MusicRequest.status == "AVAILABLE")
+        ).all()
+    )
+    repaired: list[MusicRequest] = []
+    for req in stale:
+        track = db.get(Track, req.track_id)
+        if track is None or track.status == "AVAILABLE":
+            continue
+        track.status = "AVAILABLE"
+        track.available = True
+        track.progress = None
+        repaired.append(req)
+    if not repaired:
+        return
+    db.commit()
+    for req in repaired:
+        await event_service.emit_track_updated(
+            track_id=req.track_id, status="AVAILABLE", progress=None, audience_user_ids={req.requested_by}
+        )
+
+
 async def _advance_request(db, req: MusicRequest) -> None:
     if req.status == "FAILED":
         await _resume_soulseek_retry(db, req)
@@ -87,7 +119,7 @@ async def _advance_request(db, req: MusicRequest) -> None:
                 provider_id=req.musicbrainz_id,
             )
             if not submitted.get("accepted") or not submitted.get("external_id"):
-                await _fail(db, req, "DroppedNeedle no aceptó la solicitud")
+                await _fail(db, req, str(submitted.get("reason") or "DroppedNeedle no aceptó la solicitud"))
                 return
             req.external_id = str(submitted["external_id"])
             db.commit()

@@ -62,7 +62,7 @@ def user_out(user: User) -> Dict[str, Any]:
             "email": user.email,
             "avatar": user.avatar,
             "role": user.role,
-            "autoApproveRequests": user.auto_approve_requests,
+            "autoApproveRequests": user.role == "ADMIN" or user.auto_approve_requests,
             "active": user.active,
             "lastSeen": iso(user.last_seen),
         }

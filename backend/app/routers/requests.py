@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
-from app.core.permissions import ensure_owner_or_admin
+from app.core.permissions import can_auto_approve, ensure_owner_or_admin
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
@@ -71,14 +71,20 @@ async def retry_request(request_id: str, user: User = Depends(get_current_user),
     req = request_service.get_request(db, request_id)
     if req is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Request not found")
-    ensure_owner_or_admin(user, req.requested_by)
+    if user.id != req.requested_by and not can_auto_approve(user):
+        ensure_owner_or_admin(user, req.requested_by)
     try:
-        req = request_service.retry(db, req)
+        req = request_service.retry(db, req, auto_approve=can_auto_approve(user))
     except request_service.RequestError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     await event_service.emit_request_updated(
         request_id=req.id, status=req.status, progress=req.progress, owner_user_id=req.requested_by
     )
+    track = library_service.get_track(db, req.track_id)
+    if track is not None:
+        await event_service.emit_track_updated(
+            track_id=track.id, status=track.status, progress=track.progress, audience_user_ids={req.requested_by}
+        )
     return request_out(req, requested_by_name=user.display_name)
 
 

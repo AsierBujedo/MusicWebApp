@@ -23,6 +23,7 @@ from app.models.base import utcnow
 from app.models.music_request import MusicRequest
 from app.models.track import Track
 from app.models.user import User
+from app.core.permissions import can_auto_approve
 
 # Statuses where the request is still being worked on.
 ACTIVE_STATUSES = {"PENDING", "APPROVED", "SEARCHING", "DOWNLOADING"}
@@ -65,7 +66,7 @@ def create_request(db: DbSession, *, user: User, type_: str, track: Track) -> Mu
         title=track.title,
         artist=track.artist,
         cover=track.cover,
-        status="APPROVED" if user.auto_approve_requests else "PENDING",
+        status="APPROVED" if can_auto_approve(user) else "PENDING",
         progress=None,
         # Results from DroppedNeedle are persisted behind local opaque track
         # IDs. Its identifier is a MusicBrainz ID for requestable entries.
@@ -141,10 +142,17 @@ def transition(
     return req
 
 
-def retry(db: DbSession, req: MusicRequest) -> MusicRequest:
+def retry(db: DbSession, req: MusicRequest, *, auto_approve: bool = False) -> MusicRequest:
     if req.status not in {"FAILED", "REJECTED"}:
         raise RequestError("Only failed or rejected requests can be retried")
     req.progress = None
     req.error_message = None
     req.soulseek_retry_at = None
-    return transition(db, req, "PENDING")
+    track = db.get(Track, req.track_id)
+    if track is not None:
+        track.status = "PENDING"
+        track.available = False
+        track.progress = None
+    # A rejected request still returns to moderation. A failed acquisition can
+    # be retried directly by trusted users and all administrators.
+    return transition(db, req, "APPROVED" if auto_approve and req.status == "FAILED" else "PENDING")
