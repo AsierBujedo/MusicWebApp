@@ -1,4 +1,4 @@
-import { Home, Search, Inbox, Heart, ListMusic, Clock, LayoutDashboard, Users, Radio, User } from "lucide-react"
+import { Home, Search, Inbox, Heart, ListMusic, Clock, LayoutDashboard, Users, Radio, User, Library } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
 export interface NavItem {
@@ -31,6 +31,7 @@ export const MOBILE_NAV: NavItem[] = [
 export const ADMIN_NAV: NavItem[] = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/users", label: "Usuarios", icon: Users, feature: "admin.users" },
+  { href: "/admin/tracks", label: "Biblioteca", icon: Library, feature: "admin.library" },
   { href: "/admin/requests", label: "Solicitudes", icon: Inbox, feature: "admin.requests" },
   { href: "/admin/services", label: "Servicios", icon: Radio, feature: "admin.services" },
 ]

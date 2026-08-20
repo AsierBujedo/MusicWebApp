@@ -52,7 +52,7 @@ def stats(_admin: User = Depends(get_current_admin), db: DbSession = Depends(get
 
 
 @router.get("/tracks")
-def all_tracks(_admin: User = Depends(get_current_admin), db: DbSession = Depends(get_db)):
+def all_tracks(_admin: User = Depends(require_admin_feature("admin.library")), db: DbSession = Depends(get_db)):
     """Return the complete playable library for the administrator view."""
     tracks = db.scalars(
         select(Track)
