@@ -25,14 +25,6 @@ from app.services.serializers import playlist_out
 router = APIRouter(prefix="/api/playlists", tags=["playlists"])
 
 
-def _fallback_cover(seed: str) -> str:
-    """Match the frontend's deterministic fallback artwork for a track."""
-    value = 0
-    for character in seed:
-        value = (value * 31 + ord(character)) & 0xFFFFFFFF
-    return f"/fallback-covers/abstract-{(value % 10) + 1:02d}.webp"
-
-
 def _load_editable(db: DbSession, playlist_id: str, user: User):
     pl = playlist_service.get_playlist(db, playlist_id)
     if pl is None:
@@ -145,16 +137,15 @@ def reset_cover(playlist_id: str, user: User = Depends(get_current_user), db: Db
     pl.cover = None; pl.custom_cover_path = None; db.commit(); db.refresh(pl)
     return playlist_out(db, pl)
 
-@router.post("/{playlist_id}/cover/from-track/{track_id}", response_model=PlaylistOut)
-def cover_from_track(playlist_id: str, track_id: str, user: User = Depends(get_current_user), db: DbSession = Depends(get_db)):
+@router.post("/{playlist_id}/cover/fallback/{cover_number}", response_model=PlaylistOut)
+def set_fallback_cover(playlist_id: str, cover_number: int, user: User = Depends(get_current_user), db: DbSession = Depends(get_db)):
     pl = _load_editable(db, playlist_id, user)
-    track = next((item.track for item in pl.items if item.track_id == track_id), None)
-    if track is None:
-        raise HTTPException(400, "Esa canción no pertenece a la playlist")
+    if not 1 <= cover_number <= 10:
+        raise HTTPException(400, "Carátula no válida")
     if pl.custom_cover_path: Path(pl.custom_cover_path).unlink(missing_ok=True)
-    # Songs without upstream artwork already receive this exact image in the
-    # UI, so it is also a valid, stable playlist cover.
-    pl.custom_cover_path = None; pl.cover = track.cover or _fallback_cover(track.title); db.commit(); db.refresh(pl)
+    pl.custom_cover_path = None
+    pl.cover = f"/fallback-covers/abstract-{cover_number:02d}.webp"
+    db.commit(); db.refresh(pl)
     return playlist_out(db, pl)
 
 

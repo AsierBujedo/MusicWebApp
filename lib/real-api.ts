@@ -158,7 +158,7 @@ class RealApi implements MusicApi {
     return request<Playlist>(`/api/playlists/${id}/collaborators/${encodeURIComponent(username)}`, { method: "DELETE" })
   }
   resetPlaylistCover(id: string) { return request<Playlist>(`/api/playlists/${id}/cover/reset`, {method:"POST"}) }
-  setPlaylistCoverFromTrack(id: string, trackId: string) { return request<Playlist>(`/api/playlists/${id}/cover/from-track/${trackId}`, {method:"POST"}) }
+  setPlaylistFallbackCover(id: string, coverNumber: number) { return request<Playlist>(`/api/playlists/${id}/cover/fallback/${coverNumber}`, {method:"POST"}) }
   getArtistCatalog(id: string, name?: string) {
     return request<import("@/types/api").ArtistCatalog>(`/api/catalog/artists/${id}${name ? `?name=${encodeURIComponent(name)}` : ""}`)
   }

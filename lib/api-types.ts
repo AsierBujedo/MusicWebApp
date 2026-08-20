@@ -114,7 +114,7 @@ export interface MusicApi {
   addPlaylistCollaborator(id: string, username: string): Promise<Playlist>
   removePlaylistCollaborator(id: string, username: string): Promise<Playlist>
   resetPlaylistCover(id: string): Promise<Playlist>
-  setPlaylistCoverFromTrack(id: string, trackId: string): Promise<Playlist>
+  setPlaylistFallbackCover(id: string, coverNumber: number): Promise<Playlist>
 
   // catalogue / full releases
   getArtistCatalog(id: string, name?: string): Promise<ArtistCatalog>

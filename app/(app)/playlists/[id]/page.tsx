@@ -51,7 +51,7 @@ export default function PlaylistDetailPage() {
       toast("Persona añadida", "success")
     } catch { toast("No se pudo añadir a esa persona", "error") }
   }
-  const chooseTrackCover = async (trackId: string) => { if (!data) return; try { const playlist = await api.setPlaylistCoverFromTrack(data.id, trackId); mutate(playlist, false); globalMutate("playlists"); setCoverPicker(false) } catch { toast("No se pudo cambiar la portada", "error") } }
+  const chooseFallbackCover = async (coverNumber: number) => { if (!data) return; try { const playlist = await api.setPlaylistFallbackCover(data.id, coverNumber); mutate(playlist, false); globalMutate("playlists"); setCoverPicker(false) } catch { toast("No se pudo cambiar la portada", "error") } }
   const resetCover = async () => { if (!data) return; try { const playlist = await api.resetPlaylistCover(data.id); mutate(playlist, false); globalMutate("playlists") } catch { toast("No se pudo restablecer la portada", "error") } }
   const removeCollaborator = async (username: string) => {
     if (!data) return
@@ -182,9 +182,9 @@ export default function PlaylistDetailPage() {
         open={coverPicker}
         onClose={() => setCoverPicker(false)}
         title="Elegir carátula"
-        description="Selecciona una de las carátulas que usan las canciones de esta playlist."
+        description="Elige una de las carátulas predeterminadas que se asignan a las canciones sin portada."
       >
-        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">{tracks.map((track) => <button key={track.id} onClick={() => void chooseTrackCover(track.id)} className="overflow-hidden rounded-xl border border-border hover:border-primary"><CoverImage src={track.cover} alt={track.title} className="aspect-square w-full" /></button>)}</div>
+        <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">{Array.from({ length: 10 }, (_, index) => index + 1).map((coverNumber) => { const src = `/fallback-covers/abstract-${String(coverNumber).padStart(2, "0")}.webp`; return <button key={coverNumber} onClick={() => void chooseFallbackCover(coverNumber)} className="overflow-hidden rounded-xl border border-border hover:border-primary"><CoverImage src={src} alt={`Carátula ${coverNumber}`} className="aspect-square w-full" /></button> })}</div>
       </Modal>
 
       <Modal

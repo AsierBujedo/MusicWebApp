@@ -389,7 +389,7 @@ class MockApi implements MusicApi {
     return playlist
   }
   async resetPlaylistCover(id: string): Promise<Playlist> { const p = this.playlists.find((item) => item.id === id); if (!p) throw new ApiError("Playlist no encontrada",404); p.cover = undefined; return {...p} }
-  async setPlaylistCoverFromTrack(id: string, trackId: string): Promise<Playlist> { const p = this.playlists.find((item) => item.id === id); const track=this.tracks.get(trackId); if(!p||!track?.cover) throw new ApiError("Portada no encontrada",404); p.cover=track.cover; return {...p} }
+  async setPlaylistFallbackCover(id: string, coverNumber: number): Promise<Playlist> { const p = this.playlists.find((item) => item.id === id); if (!p || coverNumber < 1 || coverNumber > 10) throw new ApiError("Portada no encontrada", 404); p.cover = `/fallback-covers/abstract-${String(coverNumber).padStart(2, "0")}.webp`; return {...p} }
   async getArtistCatalog(id: string, name?: string): Promise<import("@/types/api").ArtistCatalog> {
     const tracks = [...this.tracks.values()].filter((track) => track.artistId === id || track.artist === name)
     const first = tracks[0]
