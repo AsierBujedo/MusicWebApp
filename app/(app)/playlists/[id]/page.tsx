@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useParams, useRouter } from "next/navigation"
 import useSWR, { useSWRConfig } from "swr"
-import { Play, Shuffle, Trash2, ArrowLeft, Music, Share2, ImagePlus, X, Users, Camera, ListOrdered, ChevronUp, ChevronDown, Save, ShieldCheck } from "lucide-react"
+import { Play, Shuffle, Trash2, ArrowLeft, Music, Share2, ImagePlus, X, Users, Camera, ListOrdered, ChevronUp, ChevronDown, Save, ShieldCheck, MoreHorizontal } from "lucide-react"
 import type { Playlist, Track } from "@/types/api"
 import { api, ApiError } from "@/lib/api"
 import { usePlayer } from "@/components/providers/player-provider"
@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button"
 import { Modal } from "@/components/ui/modal"
 import { Input } from "@/components/ui/input"
 import { Avatar } from "@/components/ui/avatar"
+import { Dropdown, DropdownItem } from "@/components/ui/dropdown"
 
 export default function PlaylistDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -90,7 +91,7 @@ export default function PlaylistDetailPage() {
   const tracks = data?.tracks ?? []
   const playable = tracks.filter((t) => t.status === "AVAILABLE")
   const isOwner = !!data && data.ownerUsername === me?.username
-  const canEditOrder = !!data && (isOwner || data.collaborators?.some((person) => person.username === me?.username && person.canReorder))
+  const isManager = !!data && (isOwner || data.collaborators?.some((person) => person.username === me?.username && person.canReorder))
   const orderedTracks = orderedTrackIds
     .map((trackId) => tracks.find((track) => track.id === trackId))
     .filter((track): track is Track => Boolean(track))
@@ -175,7 +176,7 @@ export default function PlaylistDetailPage() {
         <div className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end">
           <div className="flex w-40 shrink-0 flex-col gap-2 sm:w-48">
             <CoverImage src={data.cover} alt={data.name} className="h-40 w-40 shadow-xl sm:h-48 sm:w-48" />
-            {isOwner && <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"><Camera className="h-4 w-4" />Subir portada<input className="hidden" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => uploadCover(event.target.files?.[0])} /></label>}
+            {isManager && <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"><Camera className="h-4 w-4" />Subir portada<input className="hidden" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => uploadCover(event.target.files?.[0])} /></label>}
           </div>
           <div className="flex-1">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Playlist</p>
@@ -184,7 +185,7 @@ export default function PlaylistDetailPage() {
             {data.description && <p className="mt-2 text-sm text-muted-foreground text-pretty">{data.description}</p>}
             <p className="mt-2 text-sm text-muted-foreground">{tracks.length} canciones</p>
 
-            <div className="mt-4 flex items-center gap-2">
+            <div className="mt-4 flex flex-wrap items-center gap-2">
               <Button
                 onClick={() => playQueue(playable)}
                 disabled={playable.length === 0}
@@ -202,21 +203,28 @@ export default function PlaylistDetailPage() {
               >
                 <Shuffle className="h-5 w-5" />
               </Button>
-              {canEditOrder && tracks.length > 1 && (
-                <Button variant="secondary" onClick={startOrdering} className="gap-2">
+              {isManager && tracks.length > 1 && (
+                <Button variant="secondary" onClick={startOrdering} className="hidden gap-2 sm:inline-flex">
                   <ListOrdered className="h-4 w-4" />
                   Editar orden
                 </Button>
               )}
-              {isOwner && <>
-                <Button variant="ghost" size="icon" aria-label="Eliminar playlist" onClick={() => setConfirmDelete(true)}>
+              {isManager && <>
+                <Button variant="ghost" size="icon" className="hidden sm:inline-flex" aria-label="Eliminar playlist" onClick={() => setConfirmDelete(true)}>
                   <Trash2 className="h-5 w-5" />
                 </Button>
-                <Button variant="ghost" size="icon" aria-label="Compartir playlist" onClick={() => setSharing(true)}>
+                <Button variant="ghost" size="icon" className="hidden sm:inline-flex" aria-label="Compartir playlist" onClick={() => setSharing(true)}>
                   <Share2 className="h-5 w-5" />
                 </Button>
-                <Button variant="ghost" size="icon" aria-label="Elegir carátula de una canción" onClick={() => setCoverPicker(true)}><ImagePlus className="h-5 w-5" /></Button>
-                <Button variant="ghost" size="sm" onClick={() => void resetCover()}>Restablecer</Button>
+                <Button variant="ghost" size="icon" className="hidden sm:inline-flex" aria-label="Elegir carátula de una canción" onClick={() => setCoverPicker(true)}><ImagePlus className="h-5 w-5" /></Button>
+                <Button variant="ghost" size="sm" className="hidden sm:inline-flex" onClick={() => void resetCover()}>Restablecer</Button>
+                <Dropdown trigger={<Button variant="secondary" size="icon" className="sm:hidden" aria-label="Opciones de playlist"><MoreHorizontal className="h-5 w-5" /></Button>}>
+                  {tracks.length > 1 && <DropdownItem icon={ListOrdered} onClick={startOrdering}>Editar orden</DropdownItem>}
+                  <DropdownItem icon={Share2} onClick={() => setSharing(true)}>Compartir y permisos</DropdownItem>
+                  <DropdownItem icon={ImagePlus} onClick={() => setCoverPicker(true)}>Elegir carátula</DropdownItem>
+                  <DropdownItem icon={Camera} onClick={() => void resetCover()}>Restablecer carátula</DropdownItem>
+                  <DropdownItem icon={Trash2} destructive onClick={() => setConfirmDelete(true)}>Eliminar playlist</DropdownItem>
+                </Dropdown>
               </>}
             </div>
           </div>
@@ -292,7 +300,7 @@ export default function PlaylistDetailPage() {
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary"><Users className="h-5 w-5" /></div>
               <div>
                 <p className="text-sm font-medium">Edición compartida</p>
-                <p className="mt-0.5 text-sm leading-5 text-muted-foreground">Añade personas por su alias. Podrán añadir y quitar canciones; puedes autorizar aparte quién decide el orden.</p>
+                <p className="mt-0.5 text-sm leading-5 text-muted-foreground">Añade personas por su alias. Las personas autorizadas podrán gestionar la playlist; solo tú podrás conceder autorizaciones.</p>
               </div>
             </div>
           </div>
@@ -310,7 +318,7 @@ export default function PlaylistDetailPage() {
             ) : (
               <div className="max-h-52 space-y-1 overflow-y-auto rounded-xl border border-border p-1.5">
                 {(data?.collaborators ?? (data?.collaboratorUsernames ?? []).map((username) => ({ username, displayName: username }))).map((person) => (
-                  <div key={person.username} className="flex min-w-0 items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm hover:bg-secondary/70"><Avatar name={person.displayName} src={person.avatar} className="h-8 w-8 text-xs" /><div className="min-w-0 flex-1"><span className="block truncate font-medium">@{person.username}</span>{person.canReorder && <span className="flex items-center gap-1 text-xs text-primary"><ShieldCheck className="h-3.5 w-3.5" />Puede editar el orden</span>}</div>{isOwner && <div className="flex shrink-0 items-center gap-1"><Button variant={person.canReorder ? "secondary" : "ghost"} size="sm" onClick={() => void setCollaboratorReorderPermission(person.username, !person.canReorder)}>{person.canReorder ? "Quitar orden" : "Autorizar orden"}</Button><Button variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-status-failed" aria-label={`Eliminar a ${person.username}`} onClick={() => removeCollaborator(person.username)}><X className="h-4 w-4" /></Button></div>}</div>
+                  <div key={person.username} className="flex min-w-0 items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm hover:bg-secondary/70"><Avatar name={person.displayName} src={person.avatar} className="h-8 w-8 text-xs" /><div className="min-w-0 flex-1"><span className="block truncate font-medium">@{person.username}</span>{person.canReorder && <span className="flex items-center gap-1 text-xs text-primary"><ShieldCheck className="h-3.5 w-3.5" />Autorizado para gestionar</span>}</div>{isManager && <div className="flex shrink-0 items-center gap-1">{isOwner && <Button variant={person.canReorder ? "secondary" : "ghost"} size="sm" onClick={() => void setCollaboratorReorderPermission(person.username, !person.canReorder)}>{person.canReorder ? "Quitar autorización" : "Autorizar"}</Button>}<Button variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-status-failed" aria-label={`Eliminar a ${person.username}`} onClick={() => removeCollaborator(person.username)}><X className="h-4 w-4" /></Button></div>}</div>
                 ))}
               </div>
             )}

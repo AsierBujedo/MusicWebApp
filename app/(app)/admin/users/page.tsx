@@ -108,6 +108,7 @@ export default function AdminUsersPage() {
     ["admin.requests", "Moderar solicitudes", "Aprobar o rechazar solicitudes de la comunidad."],
     ["admin.library", "Biblioteca completa", "Consultar el catálogo completo de canciones."],
     ["admin.services", "Gestionar servicios", "Ver el estado y ejecutar mantenimiento de servicios."],
+    ["admin.demo", "Modo demo", "Entrar temporalmente como una cuenta normal para soporte o pruebas."],
   ] as const
 
   return (

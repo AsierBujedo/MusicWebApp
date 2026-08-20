@@ -11,7 +11,7 @@ from app.database import get_db
 from app.config import settings
 from app.dependencies import get_current_admin, get_current_user, require_admin_feature
 from app.core.cookies import clear_demo_admin_cookie, set_demo_admin_cookie, set_session_cookie
-from app.core.features import require_feature
+from app.core.features import effective_features, require_feature
 from app.core.features import ADMIN_FEATURES
 from app.models.music_request import MusicRequest
 from app.models.track import Track
@@ -30,14 +30,14 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 
 @router.get("/demo/users")
-def demo_users(_admin: User = Depends(get_current_admin), db: DbSession = Depends(get_db)):
-    return [user_out(user) for user in user_service.list_users(db) if user.id != _admin.id]
+def demo_users(actor: User = Depends(require_admin_feature("admin.demo")), db: DbSession = Depends(get_db)):
+    return [user_out(user) for user in user_service.list_users(db) if user.id != actor.id and user.role != "ADMIN"]
 
 
 @router.post("/demo/start/{user_id}")
-def start_demo(user_id: str, request: Request, response: Response, admin: User = Depends(get_current_admin), db: DbSession = Depends(get_db)):
+def start_demo(user_id: str, request: Request, response: Response, admin: User = Depends(require_admin_feature("admin.demo")), db: DbSession = Depends(get_db)):
     target = user_service.get_user(db, user_id)
-    if target is None or not target.active:
+    if target is None or not target.active or target.role == "ADMIN":
         raise HTTPException(status_code=404, detail="Usuario no disponible")
     original = request.cookies.get(settings.session_cookie_name, "")
     if not original:
@@ -51,7 +51,7 @@ def start_demo(user_id: str, request: Request, response: Response, admin: User =
 def exit_demo(request: Request, response: Response, db: DbSession = Depends(get_db)):
     original = request.cookies.get(f"{settings.session_cookie_name}_demo_admin", "")
     resolved = auth_service.resolve_session(db, original)
-    if resolved is None or resolved[1].role != "ADMIN":
+    if resolved is None or "admin.demo" not in effective_features(resolved[1]):
         clear_demo_admin_cookie(response)
         raise HTTPException(status_code=401, detail="La sesión administrativa ya no está disponible")
     set_session_cookie(response, original)

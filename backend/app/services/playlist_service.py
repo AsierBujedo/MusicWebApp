@@ -56,10 +56,15 @@ def can_edit(pl: Playlist, user: User) -> bool:
     return pl.owner_user_id == user.id or any(row.user_id == user.id for row in pl.collaborators)
 
 
-def can_reorder(pl: Playlist, user: User) -> bool:
+def can_manage(pl: Playlist, user: User) -> bool:
     return pl.owner_user_id == user.id or any(
         row.user_id == user.id and row.can_reorder for row in pl.collaborators
     )
+
+
+# Database column keeps its original name for backward compatibility; its
+# meaning is now full playlist management, not merely ordering.
+can_reorder = can_manage
 
 
 def add_collaborator(db: DbSession, pl: Playlist, username: str) -> Playlist:

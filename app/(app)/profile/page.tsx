@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input"
 export default function ProfilePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { user, isAdmin, logout } = useAuth()
+  const { user, isAdmin, hasFeature, logout } = useAuth()
   const { theme, toggle } = useTheme()
   const { toast } = useToast()
   const { mutate: globalMutate } = useSWRConfig()
@@ -47,7 +47,7 @@ export default function ProfilePage() {
     spotifyOpen && spotifyStatus?.connected ? "spotify:playlists" : null,
     () => api.getSpotifyPlaylists(),
   )
-  const { data: demoUsers } = useSWR<User[]>(demoOpen && isAdmin ? "demo:users" : null, () => api.getDemoUsers())
+  const { data: demoUsers } = useSWR<User[]>(demoOpen && hasFeature("admin.demo") ? "demo:users" : null, () => api.getDemoUsers())
 
   React.useEffect(() => {
     const outcome = searchParams.get("spotify")
@@ -202,7 +202,7 @@ export default function ProfilePage() {
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </Link>
           )}
-          {isAdmin && user.featureFlags?.includes("admin.demo") && <button onClick={() => setDemoOpen(true)} className="flex w-full items-center gap-3 border-t border-border px-4 py-3.5 text-left transition-colors hover:bg-secondary"><Shield className="h-5 w-5 text-muted-foreground" /><div className="flex-1"><p className="text-sm font-medium">Modo demo</p><p className="text-xs text-muted-foreground">Entrar temporalmente como otra persona</p></div><ChevronRight className="h-5 w-5 text-muted-foreground" /></button>}
+          {hasFeature("admin.demo") && <button onClick={() => setDemoOpen(true)} className="flex w-full items-center gap-3 border-t border-border px-4 py-3.5 text-left transition-colors hover:bg-secondary"><Shield className="h-5 w-5 text-muted-foreground" /><div className="flex-1"><p className="text-sm font-medium">Modo demo</p><p className="text-xs text-muted-foreground">Entrar temporalmente como otra persona</p></div><ChevronRight className="h-5 w-5 text-muted-foreground" /></button>}
         </div>
       </div>
 

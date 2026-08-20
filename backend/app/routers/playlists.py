@@ -75,8 +75,8 @@ def update_playlist(
 @router.delete("/{playlist_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_playlist(playlist_id: str, user: User = Depends(get_current_user), db: DbSession = Depends(get_db)):
     pl = _load_editable(db, playlist_id, user)
-    if pl.owner_user_id != user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Solo la persona propietaria puede eliminar la playlist")
+    if not playlist_service.can_manage(pl, user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tienes permiso para eliminar la playlist")
     playlist_service.delete_playlist(db, pl)
     return None
 
@@ -111,6 +111,8 @@ def remove_track(
 @router.post("/{playlist_id}/collaborators", response_model=PlaylistOut)
 def add_collaborator(playlist_id: str, payload: AddCollaboratorInput, user: User = Depends(get_current_user), db: DbSession = Depends(get_db)):
     pl = _load_editable(db, playlist_id, user)
+    if not playlist_service.can_manage(pl, user):
+        raise HTTPException(status_code=403, detail="No tienes permiso para gestionar colaboradores")
     try:
         pl = playlist_service.add_collaborator(db, pl, payload.username)
     except playlist_service.PlaylistError as exc:
@@ -122,8 +124,8 @@ def add_collaborator(playlist_id: str, payload: AddCollaboratorInput, user: User
 def remove_collaborator(playlist_id: str, username: str, user: User = Depends(get_current_user), db: DbSession = Depends(get_db)):
     pl = _load_editable(db, playlist_id, user)
     # Only the owner can revoke access from other people.
-    if pl.owner_user_id != user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Solo la persona propietaria puede eliminar colaboradores")
+    if not playlist_service.can_manage(pl, user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tienes permiso para gestionar colaboradores")
     try:
         pl = playlist_service.remove_collaborator(db, pl, username)
     except playlist_service.PlaylistError as exc:
@@ -154,8 +156,8 @@ def update_collaborator(
 @router.post("/{playlist_id}/cover", response_model=PlaylistOut)
 async def upload_cover(playlist_id: str, file: UploadFile = File(...), user: User = Depends(get_current_user), db: DbSession = Depends(get_db)):
     pl = _load_editable(db, playlist_id, user)
-    if pl.owner_user_id != user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Solo la persona propietaria puede cambiar la portada personalizada")
+    if not playlist_service.can_manage(pl, user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tienes permiso para cambiar la portada")
     if file.content_type not in {"image/jpeg", "image/png", "image/webp"}:
         raise HTTPException(status_code=400, detail="La portada debe ser JPG, PNG o WebP")
     payload = await file.read()
@@ -178,6 +180,8 @@ async def upload_cover(playlist_id: str, file: UploadFile = File(...), user: Use
 @router.post("/{playlist_id}/cover/reset", response_model=PlaylistOut)
 def reset_cover(playlist_id: str, user: User = Depends(get_current_user), db: DbSession = Depends(get_db)):
     pl = _load_editable(db, playlist_id, user)
+    if not playlist_service.can_manage(pl, user):
+        raise HTTPException(status_code=403, detail="No tienes permiso para cambiar la portada")
     if pl.custom_cover_path: Path(pl.custom_cover_path).unlink(missing_ok=True)
     pl.cover = None; pl.custom_cover_path = None; db.commit(); db.refresh(pl)
     return playlist_out(db, pl)
@@ -185,6 +189,8 @@ def reset_cover(playlist_id: str, user: User = Depends(get_current_user), db: Db
 @router.post("/{playlist_id}/cover/fallback/{cover_number}", response_model=PlaylistOut)
 def set_fallback_cover(playlist_id: str, cover_number: int, user: User = Depends(get_current_user), db: DbSession = Depends(get_db)):
     pl = _load_editable(db, playlist_id, user)
+    if not playlist_service.can_manage(pl, user):
+        raise HTTPException(status_code=403, detail="No tienes permiso para cambiar la portada")
     if not 1 <= cover_number <= 10:
         raise HTTPException(400, "Carátula no válida")
     if pl.custom_cover_path: Path(pl.custom_cover_path).unlink(missing_ok=True)
@@ -215,7 +221,7 @@ def reorder(
     db: DbSession = Depends(get_db),
 ):
     pl = _load_editable(db, playlist_id, user)
-    if not playlist_service.can_reorder(pl, user):
+    if not playlist_service.can_manage(pl, user):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tienes permiso para cambiar el orden")
     try:
         pl = playlist_service.reorder(db, pl, payload.track_ids)
