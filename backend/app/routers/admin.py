@@ -193,3 +193,16 @@ async def services(_admin: User = Depends(get_current_admin)):
         {"name": "DroppedNeedle", "key": "droppedneedle", "status": dn_status, "detail": dn_detail},
         {"name": "slskd", "key": "slskd", "status": sl_status, "detail": sl_detail},
     ]
+
+
+@router.post("/services/slskd/reset")
+async def reset_slskd(_admin: User = Depends(get_current_admin)):
+    """Destructive maintenance action: clear all slskd downloads and restart it."""
+    slskd = get_slskd_client()
+    try:
+        result = await slskd.reset_download_queue()
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="No se pudo vaciar ni reiniciar slskd") from exc
+    finally:
+        await slskd.aclose()
+    return {"success": True, **result}

@@ -1,12 +1,15 @@
 "use client"
 
 import useSWR from "swr"
-import { RefreshCw, Server, Activity } from "lucide-react"
+import * as React from "react"
+import { RefreshCw, Server, Activity, RotateCcw } from "lucide-react"
 import { api } from "@/lib/api"
 import type { ServiceHealth, ServiceStatus } from "@/types/api"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { Modal } from "@/components/ui/modal"
+import { useToast } from "@/components/providers/toast-provider"
 
 const STATUS_META: Record<ServiceStatus, { label: string; dot: string; text: string; ring: string }> = {
   online: {
@@ -52,9 +55,26 @@ export default function AdminServicesPage() {
   const { data, isLoading, mutate, isValidating } = useSWR<ServiceHealth[]>("admin:services", () => api.getServices(), {
     refreshInterval: 15000,
   })
+  const { toast } = useToast()
+  const [confirmReset, setConfirmReset] = React.useState(false)
+  const [resetting, setResetting] = React.useState(false)
 
   const services = data ?? []
   const online = services.filter((s) => s.status === "online").length
+
+  const resetSlskd = async () => {
+    setResetting(true)
+    try {
+      const result = await api.resetSlskd()
+      toast(`slskd reiniciado. ${result.cancelled} descargas canceladas.`, "success")
+      setConfirmReset(false)
+      setTimeout(() => void mutate(), 1500)
+    } catch {
+      toast("No se pudo vaciar o reiniciar slskd", "error")
+    } finally {
+      setResetting(false)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -81,8 +101,28 @@ export default function AdminServicesPage() {
       <div className="space-y-3">
         {isLoading
           ? Array.from({ length: 5 }).map((_, i) => <div key={i} className="skeleton h-20 rounded-2xl" />)
-          : services.map((service) => <ServiceRow key={service.key} service={service} />)}
+          : services.map((service) => service.key === "slskd" ? (
+            <div key={service.key} className="space-y-3">
+              <ServiceRow service={service} />
+              <Button variant="danger" className="w-full sm:w-auto" onClick={() => setConfirmReset(true)}>
+                <RotateCcw className="h-4 w-4" aria-hidden />
+                Vaciar cola y reiniciar slskd
+              </Button>
+            </div>
+          ) : <ServiceRow key={service.key} service={service} />)}
       </div>
+
+      <Modal
+        open={confirmReset}
+        onClose={() => !resetting && setConfirmReset(false)}
+        title="¿Vaciar la cola de slskd?"
+        description="Se cancelarán todas las descargas de slskd, incluso las que no hayan sido creadas desde Resonar. Después se reiniciará slskd."
+      >
+        <div className="flex gap-3">
+          <Button variant="secondary" className="flex-1" disabled={resetting} onClick={() => setConfirmReset(false)}>Cancelar</Button>
+          <Button variant="danger" className="flex-1" disabled={resetting} onClick={() => void resetSlskd()}>{resetting ? "Reiniciando…" : "Vaciar y reiniciar"}</Button>
+        </div>
+      </Modal>
     </div>
   )
 }

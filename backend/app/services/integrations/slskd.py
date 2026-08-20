@@ -6,7 +6,9 @@ the API key is never exposed to the browser.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
+from typing import Any
 
 import httpx
 
@@ -46,6 +48,66 @@ class RealSlskdClient:
         except Exception:
             logger.warning("slskd download status failed", exc_info=True)
             return {"external_id": external_id, "state": "unknown"}
+
+    async def reset_download_queue(self) -> dict[str, int]:
+        """Cancel every slskd download and restart its application process.
+
+        This intentionally manages the whole slskd queue, including transfers
+        not created by Resonar. It is reachable only from the admin endpoint.
+        """
+        if not self._base:
+            raise RuntimeError("slskd no está configurado")
+        try:
+            response = await self._client.get("/api/v0/transfers/downloads")
+            response.raise_for_status()
+            transfers = response.json()
+            entries = self._download_entries(transfers)
+
+            results = await asyncio.gather(
+                *(
+                    self._client.delete(f"/api/v0/transfers/downloads/{username}/{transfer_id}")
+                    for username, transfer_id in entries
+                ),
+                return_exceptions=True,
+            )
+            cancelled = sum(1 for result in results if not isinstance(result, Exception) and result.status_code < 400)
+            failed = len(entries) - cancelled
+
+            # Clear the completed records too, then ask slskd itself to restart.
+            completed = await self._client.delete("/api/v0/transfers/downloads/all/completed")
+            completed.raise_for_status()
+            restarted = await self._client.put("/api/v0/application")
+            restarted.raise_for_status()
+            return {"cancelled": cancelled, "failed": failed}
+        except Exception:
+            logger.warning("slskd queue reset failed", exc_info=True)
+            raise
+
+    @staticmethod
+    def _download_entries(payload: Any) -> list[tuple[str, str]]:
+        """Normalise the grouped and flat transfer shapes used by slskd."""
+        if isinstance(payload, list):
+            groups = payload
+        elif isinstance(payload, dict):
+            groups = payload.get("items") or payload.get("downloads") or [payload]
+        else:
+            groups = []
+        entries: list[tuple[str, str]] = []
+        for group in groups if isinstance(groups, list) else []:
+            if not isinstance(group, dict):
+                continue
+            username = group.get("username")
+            files = group.get("files") or group.get("downloads") or group.get("transfers") or []
+            if not isinstance(files, list):
+                files = [group]
+            for item in files:
+                if not isinstance(item, dict):
+                    continue
+                transfer_id = item.get("id") or item.get("filename") or item.get("localFilename")
+                item_username = item.get("username") or username
+                if item_username and transfer_id:
+                    entries.append((str(item_username), str(transfer_id)))
+        return list(dict.fromkeys(entries))
 
     async def aclose(self) -> None:
         await self._client.aclose()
