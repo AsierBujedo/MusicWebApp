@@ -3,14 +3,19 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { MOBILE_NAV } from "@/lib/nav"
+import { useAuth } from "@/components/providers/auth-provider"
+import { Shield } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export function MobileNav() {
   const pathname = usePathname()
+  const { isAdmin, hasFeature } = useAuth()
+  const hasAdminPortal = isAdmin || ["admin.users", "admin.requests", "admin.library", "admin.services"].some(hasFeature)
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(href + "/"))
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 backdrop-blur md:hidden">
+      {hasAdminPortal && <Link href="/admin" className="absolute bottom-full right-4 mb-3 flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-lg"><Shield className="h-4 w-4" />Administración</Link>}
       <div className="flex min-h-14 items-stretch justify-around px-1 pb-[env(safe-area-inset-bottom)]">
         {MOBILE_NAV.map((item) => {
           const Icon = item.icon

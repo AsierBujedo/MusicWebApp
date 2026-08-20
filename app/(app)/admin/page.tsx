@@ -8,6 +8,7 @@ import { api } from "@/lib/api"
 import { PageHeader } from "@/components/page-header"
 import { RequestCard } from "@/components/request-card"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/components/providers/auth-provider"
 
 const STATUS_DOT: Record<ServiceHealth["status"], string> = {
   online: "bg-status-available",
@@ -16,16 +17,18 @@ const STATUS_DOT: Record<ServiceHealth["status"], string> = {
 }
 
 export default function AdminDashboardPage() {
-  const { data: stats, isLoading } = useSWR<AdminStats>("admin:stats", () => api.getStats(), { refreshInterval: 5000 })
-  const { data: requests } = useSWR<MusicRequest[]>("admin:requests", () => api.getAllRequests(), { refreshInterval: 4000 })
-  const { data: services } = useSWR<ServiceHealth[]>("admin:services", () => api.getServices(), { refreshInterval: 8000 })
+  const { isAdmin, hasFeature } = useAuth()
+  const can = (feature: string) => isAdmin || hasFeature(feature)
+  const { data: stats, isLoading } = useSWR<AdminStats>(isAdmin ? "admin:stats" : null, () => api.getStats(), { refreshInterval: 5000 })
+  const { data: requests } = useSWR<MusicRequest[]>(can("admin.requests") ? "admin:requests" : null, () => api.getAllRequests(), { refreshInterval: 4000 })
+  const { data: services } = useSWR<ServiceHealth[]>(can("admin.services") ? "admin:services" : null, () => api.getServices(), { refreshInterval: 8000 })
 
   const cards = [
-    { icon: Users, label: "Usuarios", value: stats?.users, href: "/admin/users" },
-    { icon: Inbox, label: "Solicitudes", value: stats?.requests, href: "/admin/requests" },
-    { icon: Download, label: "Descargando", value: stats?.downloads, href: "/admin/requests" },
-    { icon: Music, label: "Canciones", value: stats?.availableTracks, href: "/admin/tracks" },
-  ]
+    { icon: Users, label: "Usuarios", value: stats?.users, href: "/admin/users", feature: "admin.users" },
+    { icon: Inbox, label: "Solicitudes", value: stats?.requests, href: "/admin/requests", feature: "admin.requests" },
+    { icon: Download, label: "Descargando", value: stats?.downloads, href: "/admin/requests", feature: "admin.requests" },
+    { icon: Music, label: "Canciones", value: stats?.availableTracks, href: "/admin/tracks", feature: "admin.library" },
+  ].filter((card) => can(card.feature))
 
   const activeRequests = (requests ?? []).filter((r) =>
     ["PENDING", "APPROVED", "SEARCHING", "DOWNLOADING"].includes(r.status),
@@ -33,7 +36,7 @@ export default function AdminDashboardPage() {
 
   return (
     <div>
-      <PageHeader title="Panel de administración" subtitle="Visión general del sistema en tiempo real." />
+      <PageHeader title="Panel de administración" subtitle={isAdmin ? "Visión general del sistema en tiempo real." : "Funciones de administración que tienes delegadas."} />
 
       <div className="mb-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {cards.map((c) => {
@@ -64,8 +67,8 @@ export default function AdminDashboardPage() {
         })}
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-3">
-        <section className="lg:col-span-2">
+      {can("admin.requests") || can("admin.services") ? <div className="grid gap-8 lg:grid-cols-3">
+        {can("admin.requests") && <section className="lg:col-span-2">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="font-display text-lg font-semibold">Solicitudes activas</h2>
             <Link href="/admin/requests" className="flex items-center text-sm text-muted-foreground hover:text-foreground">
@@ -83,9 +86,9 @@ export default function AdminDashboardPage() {
               ))}
             </div>
           )}
-        </section>
+        </section>}
 
-        <section>
+        {can("admin.services") && <section>
           <div className="mb-3 flex items-center gap-2">
             <Radio className="h-4 w-4 text-muted-foreground" />
             <h2 className="font-display text-lg font-semibold">Servicios</h2>
@@ -115,8 +118,8 @@ export default function AdminDashboardPage() {
           >
             Gestionar servicios
           </Link>
-        </section>
-      </div>
+        </section>}
+      </div> : null}
     </div>
   )
 }

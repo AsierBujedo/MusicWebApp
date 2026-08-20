@@ -192,7 +192,7 @@ def delete_user(
 # ------------------------------ Requests ------------------------------
 
 @router.get("/requests")
-def all_requests(_admin: User = Depends(get_current_admin), db: DbSession = Depends(get_db)):
+def all_requests(_admin: User = Depends(require_admin_feature("admin.requests")), db: DbSession = Depends(get_db)):
     reqs = request_service.list_requests(db)
     # Resolve requester display names in one pass.
     names = {u.id: u.display_name for u in user_service.list_users(db)}
@@ -201,7 +201,7 @@ def all_requests(_admin: User = Depends(get_current_admin), db: DbSession = Depe
 
 @router.post("/requests/{request_id}/approve")
 async def approve_request(
-    request_id: str, _admin: User = Depends(get_current_admin), db: DbSession = Depends(get_db)
+    request_id: str, _admin: User = Depends(require_admin_feature("admin.requests")), db: DbSession = Depends(get_db)
 ):
     req = request_service.get_request(db, request_id)
     if req is None:
@@ -218,7 +218,7 @@ async def approve_request(
 
 @router.post("/requests/{request_id}/reject")
 async def reject_request(
-    request_id: str, _admin: User = Depends(get_current_admin), db: DbSession = Depends(get_db)
+    request_id: str, _admin: User = Depends(require_admin_feature("admin.requests")), db: DbSession = Depends(get_db)
 ):
     req = request_service.get_request(db, request_id)
     if req is None:
@@ -236,7 +236,7 @@ async def reject_request(
 # ------------------------------ Services ------------------------------
 
 @router.get("/services")
-async def services(_admin: User = Depends(get_current_admin)):
+async def services(_admin: User = Depends(require_admin_feature("admin.services"))):
     navidrome = get_navidrome_client()
     droppedneedle = get_droppedneedle_client()
     slskd = get_slskd_client()
