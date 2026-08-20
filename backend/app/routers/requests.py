@@ -184,6 +184,7 @@ async def upload_failed_request(
     track.provider = "manual"
     track.provider_id = None
     track.file_reference = str(destination)
+    track.duration = manual_import_service.duration_seconds(destination) or track.duration
     track.cover = f"/api/covers/{track.id}"
     track.status = "AVAILABLE"
     track.available = True
@@ -235,6 +236,7 @@ async def youtube_download(
     track.provider = "manual"
     track.provider_id = None
     track.file_reference = str(destination)
+    track.duration = manual_import_service.duration_seconds(destination) or track.duration
     track.cover = f"/api/covers/{track.id}"
     track.status = "AVAILABLE"
     track.available = True

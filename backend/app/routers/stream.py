@@ -17,7 +17,7 @@ from app.database import get_db
 from app.config import settings
 from app.dependencies import get_current_user
 from app.models.user import User
-from app.services import library_service
+from app.services import library_service, manual_import_service
 from app.services.integrations import get_navidrome_client
 
 router = APIRouter(prefix="/api", tags=["stream"])
@@ -44,6 +44,10 @@ async def stream(
         source = Path(track.file_reference).resolve()
         if not source.is_file() or not source.is_relative_to(library_root):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Manual audio file not found")
+        actual_duration = manual_import_service.duration_seconds(source)
+        if actual_duration and actual_duration != track.duration:
+            track.duration = actual_duration
+            db.commit()
         media_type = "audio/flac" if source.suffix.lower() == ".flac" else "audio/mpeg"
         return FileResponse(source, media_type=media_type)
 

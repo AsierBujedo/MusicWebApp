@@ -114,6 +114,17 @@ def embedded_cover(path: Path) -> Cover | None:
     return None
 
 
+def duration_seconds(path: Path) -> int | None:
+    """Return the decoded audio duration for a Resonar-managed manual file."""
+    try:
+        audio = FLAC(path) if path.suffix.lower() == ".flac" else MP3(path)
+        length = float(audio.info.length)
+        return max(1, round(length)) if length > 0 else None
+    except Exception:
+        logger.warning("Could not read manual audio duration: %s", path, exc_info=True)
+        return None
+
+
 def _write_tags(path: Path, track: Track, cover: Cover | None, *, audio_extension: str) -> None:
     title = track.title
     artist = track.artist

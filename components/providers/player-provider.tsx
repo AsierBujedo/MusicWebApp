@@ -43,6 +43,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [shuffle, setShuffle] = React.useState(false)
   const [expanded, setExpanded] = React.useState(false)
   const [playbackSession, setPlaybackSession] = React.useState(0)
+  const [mediaDuration, setMediaDuration] = React.useState(0)
   const audioRef = React.useRef<HTMLAudioElement | null>(null)
   const mediaControlsRef = React.useRef({
     next: () => {},
@@ -50,7 +51,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   })
 
   const currentTrack = queue[index] ?? null
-  const duration = currentTrack?.duration ?? 0
+  const duration = mediaDuration || currentTrack?.duration || 0
 
   const start = React.useCallback(
     (list: Track[], startIndex: number) => {
@@ -170,6 +171,13 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     if (!currentTrack || !isPlaying) return
     api.recordPlay(currentTrack.id).catch(() => {})
   }, [currentTrack?.id, playbackSession])
+
+  React.useEffect(() => {
+    // Track catalogue metadata can be approximate, especially after a manual
+    // import. Reset it until the newly loaded audio element reports its exact
+    // duration.
+    setMediaDuration(0)
+  }, [currentTrack?.id])
 
   // Keep lock-screen handlers current without unregistering and registering
   // them on every audio `timeupdate`. Safari can otherwise lose the previous /
@@ -336,7 +344,15 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       {!MOCK_MODE && (
         <audio
           ref={audioRef}
-          onTimeUpdate={(e) => setPosition(e.currentTarget.currentTime)}
+          onTimeUpdate={(event) => {
+            const actualDuration = event.currentTarget.duration
+            if (Number.isFinite(actualDuration) && actualDuration > 0) setMediaDuration(actualDuration)
+            setPosition(event.currentTarget.currentTime)
+          }}
+          onLoadedMetadata={(event) => {
+            const actualDuration = event.currentTarget.duration
+            if (Number.isFinite(actualDuration) && actualDuration > 0) setMediaDuration(actualDuration)
+          }}
           onEnded={() => next()}
           onPlay={() => setIsPlaying(true)}
           // Browsers emit `pause` immediately after `ended`. Do not let that
