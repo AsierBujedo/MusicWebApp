@@ -37,7 +37,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-dvh bg-background">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
-        {demo?.active && <div role="status" className="sticky top-0 z-50 flex flex-wrap items-center justify-center gap-3 bg-amber-400 px-4 py-2 text-sm font-semibold text-black shadow-md">Modo demo · estás operando como @{user.username} por cuenta de {demo.adminName}.<Button size="sm" variant="secondary" onClick={() => void api.exitDemo().then(async () => { await mutate("auth:me"); await mutate("demo:status") })}>Volver a mi cuenta</Button></div>}
+        {demo?.active && <div role="status" style={{ paddingTop: "max(0.5rem, env(safe-area-inset-top))" }} className="sticky top-0 z-50 flex flex-wrap items-center justify-center gap-3 bg-amber-400 px-4 pb-2 text-sm font-semibold text-black shadow-md">Modo demo · estás operando como @{user.username} por cuenta de {demo.adminName}.<Button size="sm" variant="secondary" onClick={() => void api.exitDemo().then(async () => { await mutate("auth:me"); await mutate("demo:status") })}>Volver a mi cuenta</Button></div>}
         <TopBar />
         <main
           className={`app-content mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6${hasPlayer ? " app-content-with-player" : ""}`}
