@@ -10,7 +10,7 @@ import base64
 import hashlib
 import logging
 import secrets
-from datetime import timedelta
+from datetime import timedelta, timezone
 from typing import Any
 from urllib.parse import urlencode
 
@@ -137,7 +137,12 @@ async def _access_token(db: DbSession, user: User) -> str:
     token = decrypt_secret(connection.access_token_encrypted, settings.secret_key)
     if not token:
         raise SpotifyError("La conexión de Spotify ya no es válida")
-    if connection.expires_at is None or connection.expires_at > utcnow() + timedelta(seconds=45):
+    expires_at = connection.expires_at
+    # SQLite commonly round-trips DateTime values without tzinfo even when the
+    # column declares timezone=True. Treat those persisted values as UTC.
+    if expires_at is not None and expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at is None or expires_at > utcnow() + timedelta(seconds=45):
         return token
     refresh = decrypt_secret(connection.refresh_token_encrypted or "", settings.secret_key)
     if not refresh:
