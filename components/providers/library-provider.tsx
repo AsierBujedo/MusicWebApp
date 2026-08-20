@@ -41,6 +41,12 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
   const [requesting, setRequesting] = React.useState(false)
   const [playlistTarget, setPlaylistTarget] = React.useState<Track | null>(null)
   const [newPlaylistName, setNewPlaylistName] = React.useState("")
+  const writablePlaylists = React.useMemo(
+    () => (playlists ?? []).filter((playlist) =>
+      playlist.ownerUsername === user?.username || playlist.collaborators?.some((person) => person.username === user?.username && person.canReorder),
+    ),
+    [playlists, user?.username],
+  )
 
   const isFavorite = React.useCallback((id: string) => favoriteIds.has(id), [favoriteIds])
 
@@ -159,7 +165,7 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
         {playlistTarget && (
           <div className="space-y-4">
             <div className="max-h-64 space-y-1 overflow-y-auto no-scrollbar">
-              {(playlists ?? []).map((pl) => {
+              {writablePlaylists.map((pl) => {
                 const already = pl.trackIds.includes(playlistTarget.id)
                 return (
                   <button
@@ -177,8 +183,8 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
                   </button>
                 )
               })}
-              {(playlists ?? []).length === 0 && (
-                <p className="px-2 py-4 text-center text-sm text-muted-foreground">Aún no tienes playlists.</p>
+              {writablePlaylists.length === 0 && (
+                <p className="px-2 py-4 text-center text-sm text-muted-foreground">No tienes ninguna playlist propia o autorizada.</p>
               )}
             </div>
             <div className="flex items-center gap-2 border-t border-border pt-4">

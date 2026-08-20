@@ -65,6 +65,8 @@ def update_playlist(
     db: DbSession = Depends(get_db),
 ):
     pl = _load_editable(db, playlist_id, user)
+    if not playlist_service.can_manage(pl, user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Necesitas autorización para añadir canciones a esta playlist")
     try:
         pl = playlist_service.update_playlist(db, pl, name=payload.name, description=payload.description)
     except playlist_service.PlaylistError as exc:
@@ -89,6 +91,8 @@ def add_track(
     db: DbSession = Depends(get_db),
 ):
     pl = _load_editable(db, playlist_id, user)
+    if not playlist_service.can_manage(pl, user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Necesitas autorización para quitar canciones de esta playlist")
     track = library_service.get_track(db, payload.track_id)
     if track is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Track not found")
