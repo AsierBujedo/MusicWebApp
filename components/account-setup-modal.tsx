@@ -19,9 +19,13 @@ export function AccountSetupModal({ user, onComplete }: { user: User; onComplete
   const [confirmPassword, setConfirmPassword] = React.useState("")
   const [error, setError] = React.useState<string | null>(null)
   const [saving, setSaving] = React.useState(false)
+  const [dismissed, setDismissed] = React.useState(false)
 
-  React.useEffect(() => setEmail(user.email ?? ""), [user.email])
-  if (!required) return null
+  React.useEffect(() => {
+    setEmail(user.email ?? "")
+    setDismissed(false)
+  }, [user.id, user.email])
+  if (!required || dismissed) return null
 
   const save = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -44,10 +48,9 @@ export function AccountSetupModal({ user, onComplete }: { user: User; onComplete
   return (
     <Modal
       open
-      onClose={() => undefined}
-      dismissible={false}
+      onClose={() => setDismissed(true)}
       title="Completa tu cuenta"
-      description={needsPassword ? "Por seguridad, cambia la contraseña inicial antes de continuar." : "Añade tu correo para terminar de configurar tu cuenta."}
+      description={needsPassword ? "Te recomendamos cambiar la contraseña inicial. Te lo recordaremos al volver a iniciar sesión hasta que la cambies." : "Añade tu correo para terminar de configurar tu cuenta."}
     >
       <form onSubmit={save} className="space-y-4">
         {needsEmail && <div className="space-y-1.5"><label htmlFor="setup-email" className="text-sm font-medium">Correo electrónico</label><Input id="setup-email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></div>}
@@ -57,7 +60,7 @@ export function AccountSetupModal({ user, onComplete }: { user: User; onComplete
           <div className="space-y-1.5"><label htmlFor="setup-confirm-password" className="text-sm font-medium">Confirmar nueva contraseña</label><Input id="setup-confirm-password" type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required /></div>
         </>}
         {error && <p className="rounded-xl bg-status-failed/10 px-3 py-2 text-sm text-status-failed" role="alert">{error}</p>}
-        <Button type="submit" className="w-full" disabled={saving || (needsPassword && !currentPassword)}>{saving && <Spinner className="h-4 w-4" />}Guardar y continuar</Button>
+        <Button type="submit" className="w-full" disabled={saving || (needsPassword && !currentPassword)}>{saving && <Spinner className="h-4 w-4" />}Guardar cambios</Button>
       </form>
     </Modal>
   )
