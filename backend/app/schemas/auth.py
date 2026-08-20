@@ -13,3 +13,7 @@ class LoginInput(CamelModel):
 class ChangePasswordInput(CamelModel):
     current_password: str = Field(min_length=1, max_length=256)
     new_password: str = Field(min_length=6, max_length=256)
+
+
+class UpdateEmailInput(CamelModel):
+    email: str = Field(min_length=3, max_length=255)

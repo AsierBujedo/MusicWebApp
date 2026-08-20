@@ -72,6 +72,7 @@ export interface MusicApi {
   logout(): Promise<void>
   getCurrentUser(): Promise<User>
   changePassword(currentPassword: string, newPassword: string): Promise<void>
+  updateProfileEmail(email: string): Promise<User>
   uploadAvatar(file: File): Promise<User>
 
   // Spotify playlist import

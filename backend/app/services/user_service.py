@@ -46,6 +46,7 @@ def create_user(
         role=role if role in {"ADMIN", "USER"} else "USER",
         auto_approve_requests=bool(auto_approve_requests) if role == "USER" else False,
         active=True,
+        must_change_password=True,
         password_hash=security.hash_password(password),
     )
     db.add(user)

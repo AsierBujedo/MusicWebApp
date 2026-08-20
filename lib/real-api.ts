@@ -54,6 +54,9 @@ class RealApi implements MusicApi {
       body: JSON.stringify({ currentPassword, newPassword }),
     })
   }
+  updateProfileEmail(email: string) {
+    return request<User>("/api/auth/profile", { method: "PATCH", body: JSON.stringify({ email }) })
+  }
   async uploadAvatar(file: File) { const form = new FormData(); form.append("file", file); const res = await fetch(`${BASE}/api/auth/avatar`, {method:"POST", credentials:"include", body:form}); if (!res.ok) throw new ApiError("No se pudo subir la foto", res.status); return res.json() as Promise<User> }
   getSpotifyStatus() {
     return request<SpotifyStatus>("/api/integrations/spotify/status")

@@ -11,6 +11,7 @@ export interface User {
   avatar?: string
   role: Role
   autoApproveRequests?: boolean
+  mustChangePassword?: boolean
   active?: boolean
   lastSeen?: string
 }

@@ -8,9 +8,10 @@ import { MobileNav } from "@/components/layout/mobile-nav"
 import { TopBar } from "@/components/layout/top-bar"
 import { PlayerBar } from "@/components/layout/player-bar"
 import { LoginScreen } from "@/components/auth/login-screen"
+import { AccountSetupModal } from "@/components/account-setup-modal"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth()
+  const { user, loading, refresh } = useAuth()
   const { currentTrack } = usePlayer()
 
   if (loading) {
@@ -40,6 +41,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
       <MobileNav />
       <PlayerBar />
+      <AccountSetupModal user={user} onComplete={refresh} />
     </div>
   )
 }

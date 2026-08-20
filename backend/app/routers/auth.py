@@ -12,7 +12,7 @@ from app.core.cookies import clear_session_cookie, set_session_cookie
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
-from app.schemas.auth import ChangePasswordInput, LoginInput
+from app.schemas.auth import ChangePasswordInput, LoginInput, UpdateEmailInput
 from app.services import auth_service
 from app.services.serializers import user_out
 
@@ -77,3 +77,12 @@ def change_password(
     except auth_service.AuthError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password incorrect")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.patch("/profile")
+def update_profile(payload: UpdateEmailInput, user: User = Depends(get_current_user), db: DbSession = Depends(get_db)):
+    try:
+        user = auth_service.update_email(db, user, payload.email)
+    except auth_service.AuthError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email no válido o ya en uso")
+    return user_out(user)

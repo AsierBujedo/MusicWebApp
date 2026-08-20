@@ -116,4 +116,18 @@ def change_password(db: DbSession, user: User, current_password: str, new_passwo
     if not security.verify_password(current_password, user.password_hash):
         raise AuthError("current password incorrect")
     user.password_hash = security.hash_password(new_password)
+    user.must_change_password = False
     db.commit()
+
+
+def update_email(db: DbSession, user: User, email: str) -> User:
+    normalized = email.strip().lower()
+    if not normalized or "@" not in normalized or normalized.startswith("@") or normalized.endswith("@"):
+        raise AuthError("invalid email")
+    existing = db.scalar(select(User).where(User.email == normalized, User.id != user.id))
+    if existing is not None:
+        raise AuthError("email already used")
+    user.email = normalized
+    db.commit()
+    db.refresh(user)
+    return user

@@ -23,6 +23,9 @@ class User(Base):
     # grants administrative access.
     auto_approve_requests: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # Set for accounts provisioned by an administrator. It is cleared only
+    # after the account holder successfully changes the initial password.
+    must_change_password: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     last_seen: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)

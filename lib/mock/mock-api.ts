@@ -100,7 +100,9 @@ class MockApi implements MusicApi {
       throw new ApiError("La nueva contraseña debe tener al menos 6 caracteres.", 400)
     }
     this.passwords.set(user.id, newPassword)
+    user.mustChangePassword = false
   }
+  async updateProfileEmail(email: string): Promise<User> { const user = this.me(); user.email = email.trim().toLowerCase(); return { ...user } }
   async uploadAvatar(_file: File): Promise<User> { const user = this.me(); user.avatar = cover(`${user.username}-avatar`); return { ...user } }
 
   async getSpotifyStatus(): Promise<SpotifyStatus> {
