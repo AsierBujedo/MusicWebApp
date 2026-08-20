@@ -42,4 +42,5 @@ class PlaylistOut(CamelModel):
     shared: bool = False
     owner_username: Optional[str] = None
     collaborator_usernames: List[str] = []
+    collaborators: List[dict] = []
     created_at: datetime

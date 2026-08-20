@@ -131,6 +131,7 @@ export interface Playlist {
   shared?: boolean
   ownerUsername?: string
   collaboratorUsernames?: string[]
+  collaborators?: { username: string; displayName: string; avatar?: string }[]
 }
 
 export interface HistoryEntry {

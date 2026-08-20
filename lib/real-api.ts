@@ -54,6 +54,7 @@ class RealApi implements MusicApi {
       body: JSON.stringify({ currentPassword, newPassword }),
     })
   }
+  async uploadAvatar(file: File) { const form = new FormData(); form.append("file", file); const res = await fetch(`${BASE}/api/auth/avatar`, {method:"POST", credentials:"include", body:form}); if (!res.ok) throw new ApiError("No se pudo subir la foto", res.status); return res.json() as Promise<User> }
   getSpotifyStatus() {
     return request<SpotifyStatus>("/api/integrations/spotify/status")
   }
@@ -163,6 +164,8 @@ class RealApi implements MusicApi {
     if (!res.ok) throw new ApiError("No se pudo subir la portada", res.status)
     return res.json() as Promise<Playlist>
   }
+  resetPlaylistCover(id: string) { return request<Playlist>(`/api/playlists/${id}/cover/reset`, {method:"POST"}) }
+  setPlaylistCoverFromTrack(id: string, trackId: string) { return request<Playlist>(`/api/playlists/${id}/cover/from-track/${trackId}`, {method:"POST"}) }
   getArtistCatalog(id: string, name?: string) {
     return request<import("@/types/api").ArtistCatalog>(`/api/catalog/artists/${id}${name ? `?name=${encodeURIComponent(name)}` : ""}`)
   }

@@ -117,6 +117,10 @@ def playlist_out(db: DbSession, pl: Playlist) -> Dict[str, Any]:
                     .where(PlaylistCollaborator.playlist_id == pl.id)
                 ).all()
             ],
+            "collaborators": [
+                {"username": user.username, "displayName": user.display_name, "avatar": user.avatar}
+                for user in db.scalars(select(User).join(PlaylistCollaborator, PlaylistCollaborator.user_id == User.id).where(PlaylistCollaborator.playlist_id == pl.id)).all()
+            ],
         }
     )
 

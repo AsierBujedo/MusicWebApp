@@ -1,7 +1,9 @@
 """Authentication endpoints: /api/auth/*"""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from pathlib import Path
+from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile, status
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session as DbSession
 
 from app.config import settings
@@ -39,6 +41,23 @@ def logout(request: Request, response: Response, db: DbSession = Depends(get_db)
 @router.get("/me")
 def me(user: User = Depends(get_current_user)):
     return user_out(user)
+
+@router.post("/avatar")
+async def upload_avatar(file: UploadFile = File(...), user: User = Depends(get_current_user), db: DbSession = Depends(get_db)):
+    if file.content_type not in {"image/jpeg", "image/png", "image/webp"}: raise HTTPException(400, "Usa JPG, PNG o WebP")
+    payload = await file.read()
+    if len(payload) > 5 * 1024 * 1024: raise HTTPException(400, "La foto supera 5 MB")
+    ext = {"image/jpeg":"jpg", "image/png":"png", "image/webp":"webp"}[file.content_type]
+    directory = Path("data/avatars"); directory.mkdir(parents=True, exist_ok=True)
+    target = directory / f"{user.id}.{ext}"; target.write_bytes(payload)
+    user.avatar = f"/api/auth/avatars/{user.id}"; db.commit()
+    return user_out(user)
+
+@router.get("/avatars/{user_id}")
+def avatar(user_id: str, _user: User = Depends(get_current_user), db: DbSession = Depends(get_db)):
+    target = next((p for p in Path("data/avatars").glob(f"{user_id}.*") if p.is_file()), None)
+    if target is None: raise HTTPException(404, "Avatar not found")
+    return FileResponse(target, headers={"Cache-Control": "private, max-age=86400"})
 
 
 @router.post("/password", status_code=status.HTTP_204_NO_CONTENT)

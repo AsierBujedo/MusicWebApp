@@ -101,6 +101,7 @@ class MockApi implements MusicApi {
     }
     this.passwords.set(user.id, newPassword)
   }
+  async uploadAvatar(_file: File): Promise<User> { const user = this.me(); user.avatar = cover(`${user.username}-avatar`); return { ...user } }
 
   async getSpotifyStatus(): Promise<SpotifyStatus> {
     await delay(150)
@@ -390,6 +391,8 @@ class MockApi implements MusicApi {
   async uploadPlaylistCover(id: string, _file: File): Promise<Playlist> {
     return this.getPlaylist(id)
   }
+  async resetPlaylistCover(id: string): Promise<Playlist> { const p = this.playlists.find((item) => item.id === id); if (!p) throw new ApiError("Playlist no encontrada",404); p.cover = undefined; return {...p} }
+  async setPlaylistCoverFromTrack(id: string, trackId: string): Promise<Playlist> { const p = this.playlists.find((item) => item.id === id); const track=this.tracks.get(trackId); if(!p||!track?.cover) throw new ApiError("Portada no encontrada",404); p.cover=track.cover; return {...p} }
   async getArtistCatalog(id: string, name?: string): Promise<import("@/types/api").ArtistCatalog> {
     const tracks = [...this.tracks.values()].filter((track) => track.artistId === id || track.artist === name)
     const first = tracks[0]

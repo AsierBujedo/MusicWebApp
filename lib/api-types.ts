@@ -72,6 +72,7 @@ export interface MusicApi {
   logout(): Promise<void>
   getCurrentUser(): Promise<User>
   changePassword(currentPassword: string, newPassword: string): Promise<void>
+  uploadAvatar(file: File): Promise<User>
 
   // Spotify playlist import
   getSpotifyStatus(): Promise<SpotifyStatus>
@@ -113,6 +114,8 @@ export interface MusicApi {
   addPlaylistCollaborator(id: string, username: string): Promise<Playlist>
   removePlaylistCollaborator(id: string, username: string): Promise<Playlist>
   uploadPlaylistCover(id: string, file: File): Promise<Playlist>
+  resetPlaylistCover(id: string): Promise<Playlist>
+  setPlaylistCoverFromTrack(id: string, trackId: string): Promise<Playlist>
 
   // catalogue / full releases
   getArtistCatalog(id: string, name?: string): Promise<ArtistCatalog>

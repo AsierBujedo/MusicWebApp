@@ -149,6 +149,22 @@ async def upload_cover(playlist_id: str, file: UploadFile = File(...), user: Use
     db.refresh(pl)
     return playlist_out(db, pl)
 
+@router.post("/{playlist_id}/cover/reset", response_model=PlaylistOut)
+def reset_cover(playlist_id: str, user: User = Depends(get_current_user), db: DbSession = Depends(get_db)):
+    pl = _load_editable(db, playlist_id, user)
+    if pl.custom_cover_path: Path(pl.custom_cover_path).unlink(missing_ok=True)
+    pl.cover = None; pl.custom_cover_path = None; db.commit(); db.refresh(pl)
+    return playlist_out(db, pl)
+
+@router.post("/{playlist_id}/cover/from-track/{track_id}", response_model=PlaylistOut)
+def cover_from_track(playlist_id: str, track_id: str, user: User = Depends(get_current_user), db: DbSession = Depends(get_db)):
+    pl = _load_editable(db, playlist_id, user)
+    track = next((item.track for item in pl.items if item.track_id == track_id), None)
+    if track is None or not track.cover: raise HTTPException(400, "Esa canción no tiene carátula")
+    if pl.custom_cover_path: Path(pl.custom_cover_path).unlink(missing_ok=True)
+    pl.custom_cover_path = None; pl.cover = track.cover; db.commit(); db.refresh(pl)
+    return playlist_out(db, pl)
+
 
 @router.get("/{playlist_id}/cover")
 def playlist_cover(playlist_id: str, user: User = Depends(get_current_user), db: DbSession = Depends(get_db)):

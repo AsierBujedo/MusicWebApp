@@ -15,6 +15,7 @@ import { CoverImage } from "@/components/cover-image"
 import { Button } from "@/components/ui/button"
 import { Modal } from "@/components/ui/modal"
 import { Input } from "@/components/ui/input"
+import { Avatar } from "@/components/ui/avatar"
 
 export default function PlaylistDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -39,6 +40,7 @@ export default function PlaylistDetailPage() {
   const [confirmDelete, setConfirmDelete] = React.useState(false)
   const [sharing, setSharing] = React.useState(false)
   const [alias, setAlias] = React.useState("")
+  const [coverPicker, setCoverPicker] = React.useState(false)
 
   const addCollaborator = async () => {
     if (!data || !alias.trim()) return
@@ -54,6 +56,8 @@ export default function PlaylistDetailPage() {
     try { await api.uploadPlaylistCover(data.id, file); mutate(); globalMutate("playlists") }
     catch { toast("No se pudo subir la portada", "error") }
   }
+  const chooseTrackCover = async (trackId: string) => { if (!data) return; try { await api.setPlaylistCoverFromTrack(data.id, trackId); mutate(); globalMutate("playlists"); setCoverPicker(false) } catch { toast("No se pudo cambiar la portada", "error") } }
+  const resetCover = async () => { if (!data) return; try { await api.resetPlaylistCover(data.id); mutate(); globalMutate("playlists") } catch { toast("No se pudo restablecer la portada", "error") } }
   const removeCollaborator = async (username: string) => {
     if (!data) return
     try { await api.removePlaylistCollaborator(data.id, username); mutate(); globalMutate("playlists") }
@@ -163,6 +167,8 @@ export default function PlaylistDetailPage() {
                   <ImagePlus className="h-5 w-5" />
                   <input className="hidden" type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => uploadCover(e.target.files?.[0])} />
                 </label>
+                <Button variant="ghost" size="icon" aria-label="Elegir portada" onClick={() => setCoverPicker(true)}><ImagePlus className="h-5 w-5" /></Button>
+                <Button variant="ghost" size="sm" onClick={() => void resetCover()}>Restablecer</Button>
               </>}
             </div>
           </div>
@@ -180,6 +186,15 @@ export default function PlaylistDetailPage() {
       ) : (
         <TrackList tracks={tracks} onRemove={handleRemove} />
       )}
+
+      <Modal
+        open={coverPicker}
+        onClose={() => setCoverPicker(false)}
+        title="Elegir carátula"
+        description="Selecciona la portada de una canción de esta playlist o restablece el collage automático."
+      >
+        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">{tracks.filter((track) => track.cover).map((track) => <button key={track.id} onClick={() => void chooseTrackCover(track.id)} className="overflow-hidden rounded-xl border border-border hover:border-primary"><CoverImage src={track.cover} alt={track.title} className="aspect-square w-full" /></button>)}</div>
+      </Modal>
 
       <Modal
         open={confirmDelete}
@@ -220,8 +235,8 @@ export default function PlaylistDetailPage() {
               <p className="rounded-xl border border-dashed border-border px-4 py-5 text-center text-sm text-muted-foreground">Aún no has añadido a nadie.</p>
             ) : (
               <div className="max-h-52 space-y-1 overflow-y-auto rounded-xl border border-border p-1.5">
-                {(data?.collaboratorUsernames ?? []).map((name) => (
-                  <div key={name} className="flex min-w-0 items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm hover:bg-secondary/70"><span className="truncate font-medium">@{name}</span>{isOwner && <Button variant="ghost" size="icon-sm" className="shrink-0 text-muted-foreground hover:text-status-failed" aria-label={`Eliminar a ${name}`} onClick={() => removeCollaborator(name)}><X className="h-4 w-4" /></Button>}</div>
+                {(data?.collaborators ?? (data?.collaboratorUsernames ?? []).map((username) => ({ username, displayName: username }))).map((person) => (
+                  <div key={person.username} className="flex min-w-0 items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm hover:bg-secondary/70"><Avatar name={person.displayName} src={person.avatar} className="h-8 w-8 text-xs" /><span className="min-w-0 flex-1 truncate font-medium">@{person.username}</span>{isOwner && <Button variant="ghost" size="icon-sm" className="shrink-0 text-muted-foreground hover:text-status-failed" aria-label={`Eliminar a ${person.username}`} onClick={() => removeCollaborator(person.username)}><X className="h-4 w-4" /></Button>}</div>
                 ))}
               </div>
             )}

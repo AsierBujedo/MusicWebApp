@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import useSWR, { useSWRConfig } from "swr"
-import { LogOut, Heart, ListMusic, Inbox, Shield, Moon, Sun, ChevronRight, KeyRound, Music2, Check } from "lucide-react"
+import { LogOut, Heart, ListMusic, Inbox, Shield, Moon, Sun, ChevronRight, KeyRound, Music2, Check, Camera } from "lucide-react"
 import Link from "next/link"
 import type { HistoryEntry, Playlist, Track, MusicRequest } from "@/types/api"
 import { api } from "@/lib/api"
@@ -25,6 +25,7 @@ export default function ProfilePage() {
   const [spotifyOpen, setSpotifyOpen] = React.useState(false)
   const [selectedSpotifyPlaylists, setSelectedSpotifyPlaylists] = React.useState<string[]>([])
   const [importingSpotify, setImportingSpotify] = React.useState(false)
+  const avatarInput = React.useRef<HTMLInputElement>(null)
 
   const { data: favorites } = useSWR<Track[]>(user ? "favorites" : null, () => api.getFavorites())
   const { data: playlists } = useSWR<Playlist[]>(user ? "playlists" : null, () => api.getPlaylists())
@@ -77,13 +78,14 @@ export default function ProfilePage() {
       setImportingSpotify(false)
     }
   }
+  const uploadAvatar = async (file?: File) => { if (!file) return; try { await api.uploadAvatar(file); await globalMutate("auth:me"); toast("Foto de perfil actualizada", "success") } catch { toast("No se pudo subir la foto", "error") } finally { if (avatarInput.current) avatarInput.current.value = "" } }
 
   return (
     <div>
       <PageHeader title="Mi perfil" />
 
       <div className="mb-8 flex flex-col items-center gap-4 rounded-3xl border border-border bg-card p-8 text-center sm:flex-row sm:text-left">
-        <Avatar name={user.displayName} src={user.avatar} className="h-20 w-20 text-2xl" />
+        <div className="relative"><Avatar name={user.displayName} src={user.avatar} className="h-20 w-20 text-2xl" /><button onClick={() => avatarInput.current?.click()} className="absolute -bottom-1 -right-1 rounded-full bg-primary p-1.5 text-primary-foreground" aria-label="Cambiar foto"><Camera className="h-3.5 w-3.5" /></button><input ref={avatarInput} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => void uploadAvatar(e.target.files?.[0])} /></div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-center gap-2 sm:justify-start">
             <h2 className="text-xl font-semibold">{user.displayName}</h2>
