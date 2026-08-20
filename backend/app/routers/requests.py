@@ -18,6 +18,8 @@ from app.services.serializers import request_out
 
 router = APIRouter(prefix="/api/requests", tags=["requests"])
 
+_CANCELLABLE_REQUEST_STATUSES = {"APPROVED", "SEARCHING", "DOWNLOADING"}
+
 
 @router.get("", response_model=list[MusicRequestOut])
 def list_requests(user: User = Depends(get_current_user), db: DbSession = Depends(get_db)):
@@ -85,7 +87,7 @@ async def _cancel_active_request(req: MusicRequest, db: DbSession) -> None:
 
     # Once DroppedNeedle has a task ID, it owns live slskd transfers. Do not
     # remove Resonar's row unless DroppedNeedle confirms that cancellation.
-    if req.external_id:
+    if req.external_id and req.status != "AVAILABLE":
         droppedneedle = get_droppedneedle_client()
         try:
             cancelled = await droppedneedle.cancel(req.external_id)
@@ -93,7 +95,7 @@ async def _cancel_active_request(req: MusicRequest, db: DbSession) -> None:
             await droppedneedle.aclose()
         if not cancelled:
             raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Remote download could not be cancelled")
-    elif req.status != "APPROVED":
+    elif not req.external_id and req.status != "APPROVED":
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Remote task is not ready to cancel")
 
     track_id, owner_user_id = req.track_id, req.requested_by
@@ -106,6 +108,16 @@ async def _cancel_active_request(req: MusicRequest, db: DbSession) -> None:
     return None
 
 
+def _is_cancellable_request(req: MusicRequest, db: DbSession) -> bool:
+    if req.status in _CANCELLABLE_REQUEST_STATUSES:
+        return True
+    # A remote import can finish just as Navidrome is scanning. If a stale
+    # worker update leaves the local track downloading while its request says
+    # AVAILABLE, keep it cancellable so the user can recover that stuck state.
+    track = library_service.get_track(db, req.track_id)
+    return req.status == "AVAILABLE" and bool(req.external_id) and track is not None and track.status == "DOWNLOADING"
+
+
 @router.post("/{request_id}/cancel", status_code=status.HTTP_204_NO_CONTENT)
 async def cancel_active_request(
     request_id: str, user: User = Depends(get_current_user), db: DbSession = Depends(get_db)
@@ -114,7 +126,7 @@ async def cancel_active_request(
     if req is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Request not found")
     ensure_owner_or_admin(user, req.requested_by)
-    if req.status not in {"APPROVED", "SEARCHING", "DOWNLOADING"}:
+    if not _is_cancellable_request(req, db):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only approved or active requests can be cancelled")
     await _cancel_active_request(req, db)
 
@@ -128,13 +140,13 @@ async def cancel_active_track_request(
         select(MusicRequest)
         .where(
             MusicRequest.track_id == track_id,
-            MusicRequest.status.in_({"APPROVED", "SEARCHING", "DOWNLOADING"}),
+            MusicRequest.status.in_(_CANCELLABLE_REQUEST_STATUSES | {"AVAILABLE"}),
         )
         .order_by(MusicRequest.created_at.desc())
     )
     if user.role != "ADMIN":
         statement = statement.where(MusicRequest.requested_by == user.id)
-    req = db.scalar(statement)
+    req = next((item for item in db.scalars(statement) if _is_cancellable_request(item, db)), None)
     if req is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No active request found for track")
     await _cancel_active_request(req, db)
