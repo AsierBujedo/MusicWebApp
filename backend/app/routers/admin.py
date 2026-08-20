@@ -34,7 +34,7 @@ def demo_users(_admin: User = Depends(get_current_admin), db: DbSession = Depend
     return [user_out(user) for user in user_service.list_users(db) if user.id != _admin.id]
 
 
-@router.post("/demo/{user_id}")
+@router.post("/demo/start/{user_id}")
 def start_demo(user_id: str, request: Request, response: Response, admin: User = Depends(get_current_admin), db: DbSession = Depends(get_db)):
     target = user_service.get_user(db, user_id)
     if target is None or not target.active:
