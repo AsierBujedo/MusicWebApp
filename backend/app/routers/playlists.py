@@ -14,6 +14,7 @@ from app.models.user import User
 from app.schemas.playlist import (
     AddTrackInput,
     AddCollaboratorInput,
+    UpdateCollaboratorInput,
     CreatePlaylistInput,
     ReorderInput,
     UpdatePlaylistInput,
@@ -130,6 +131,26 @@ def remove_collaborator(playlist_id: str, username: str, user: User = Depends(ge
     return playlist_out(db, pl)
 
 
+@router.patch("/{playlist_id}/collaborators/{username}", response_model=PlaylistOut)
+def update_collaborator(
+    playlist_id: str,
+    username: str,
+    payload: UpdateCollaboratorInput,
+    user: User = Depends(get_current_user),
+    db: DbSession = Depends(get_db),
+):
+    pl = _load_editable(db, playlist_id, user)
+    if pl.owner_user_id != user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Solo la persona propietaria puede autorizar el orden")
+    try:
+        pl = playlist_service.set_collaborator_reorder_permission(
+            db, pl, username, can_reorder=payload.can_reorder
+        )
+    except playlist_service.PlaylistError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    return playlist_out(db, pl)
+
+
 @router.post("/{playlist_id}/cover", response_model=PlaylistOut)
 async def upload_cover(playlist_id: str, file: UploadFile = File(...), user: User = Depends(get_current_user), db: DbSession = Depends(get_db)):
     pl = _load_editable(db, playlist_id, user)
@@ -194,6 +215,8 @@ def reorder(
     db: DbSession = Depends(get_db),
 ):
     pl = _load_editable(db, playlist_id, user)
+    if not playlist_service.can_reorder(pl, user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tienes permiso para cambiar el orden")
     try:
         pl = playlist_service.reorder(db, pl, payload.track_ids)
     except playlist_service.PlaylistError as exc:

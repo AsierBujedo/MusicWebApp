@@ -132,7 +132,7 @@ export interface Playlist {
   shared?: boolean
   ownerUsername?: string
   collaboratorUsernames?: string[]
-  collaborators?: { username: string; displayName: string; avatar?: string }[]
+  collaborators?: { username: string; displayName: string; avatar?: string; canReorder?: boolean }[]
 }
 
 export interface HistoryEntry {

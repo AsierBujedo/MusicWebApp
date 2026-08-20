@@ -390,6 +390,12 @@ class MockApi implements MusicApi {
     playlist.collaboratorUsernames = (playlist.collaboratorUsernames ?? []).filter((name) => name !== username)
     return playlist
   }
+  async setPlaylistCollaboratorReorderPermission(id: string, username: string, canReorder: boolean): Promise<Playlist> {
+    const playlist = this.playlists.find((item) => item.id === id)
+    if (!playlist) throw new ApiError("No encontramos esta playlist.", 404)
+    playlist.collaborators = (playlist.collaborators ?? []).map((person) => person.username === username ? { ...person, canReorder } : person)
+    return this.hydrate(playlist)
+  }
   async uploadPlaylistCover(id: string, _file: File): Promise<Playlist> {
     return this.getPlaylist(id)
   }

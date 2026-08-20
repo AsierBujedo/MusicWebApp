@@ -10,7 +10,10 @@ export function AccountSetupModal({ user }: { user: User }) {
   const router = useRouter()
   const [dismissed, setDismissed] = React.useState(false)
   const needsEmail = !user.email
-  const needsPassword = Boolean(user.mustChangePassword)
+  // Administrators may be bootstrap/maintenance accounts. Their password
+  // lifecycle is managed separately, so never show the initial-password
+  // reminder to them.  They can still receive the independent email prompt.
+  const needsPassword = user.role !== "ADMIN" && Boolean(user.mustChangePassword)
   if ((!needsEmail && !needsPassword) || dismissed) return null
 
   const description = needsEmail && needsPassword

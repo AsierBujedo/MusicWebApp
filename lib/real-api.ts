@@ -160,6 +160,9 @@ class RealApi implements MusicApi {
   removePlaylistCollaborator(id: string, username: string) {
     return request<Playlist>(`/api/playlists/${id}/collaborators/${encodeURIComponent(username)}`, { method: "DELETE" })
   }
+  setPlaylistCollaboratorReorderPermission(id: string, username: string, canReorder: boolean) {
+    return request<Playlist>(`/api/playlists/${id}/collaborators/${encodeURIComponent(username)}`, { method: "PATCH", body: JSON.stringify({ canReorder }) })
+  }
   async uploadPlaylistCover(id: string, file: File) {
     const form = new FormData()
     form.append("file", file)

@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useParams, useRouter } from "next/navigation"
 import useSWR, { useSWRConfig } from "swr"
-import { Play, Shuffle, Trash2, ArrowLeft, Music, Share2, ImagePlus, X, Users, Camera, ListOrdered, ChevronUp, ChevronDown, Save } from "lucide-react"
+import { Play, Shuffle, Trash2, ArrowLeft, Music, Share2, ImagePlus, X, Users, Camera, ListOrdered, ChevronUp, ChevronDown, Save, ShieldCheck } from "lucide-react"
 import type { Playlist, Track } from "@/types/api"
 import { api, ApiError } from "@/lib/api"
 import { usePlayer } from "@/components/providers/player-provider"
@@ -62,6 +62,15 @@ export default function PlaylistDetailPage() {
     try { await api.removePlaylistCollaborator(data.id, username); mutate(); globalMutate("playlists") }
     catch { toast("No se pudo eliminar a esa persona", "error") }
   }
+  const setCollaboratorReorderPermission = async (username: string, canReorder: boolean) => {
+    if (!data) return
+    try {
+      const playlist = await api.setPlaylistCollaboratorReorderPermission(data.id, username, canReorder)
+      mutate(playlist, false)
+      globalMutate("playlists")
+      toast(canReorder ? "Autorización de orden concedida" : "Autorización de orden retirada", "success")
+    } catch { toast("No se pudo actualizar la autorización", "error") }
+  }
 
   if (error instanceof ApiError && error.status === 404) {
     return (
@@ -81,7 +90,7 @@ export default function PlaylistDetailPage() {
   const tracks = data?.tracks ?? []
   const playable = tracks.filter((t) => t.status === "AVAILABLE")
   const isOwner = !!data && data.ownerUsername === me?.username
-  const canEdit = !!data && (isOwner || data.collaboratorUsernames?.includes(me?.username ?? ""))
+  const canEditOrder = !!data && (isOwner || data.collaborators?.some((person) => person.username === me?.username && person.canReorder))
   const orderedTracks = orderedTrackIds
     .map((trackId) => tracks.find((track) => track.id === trackId))
     .filter((track): track is Track => Boolean(track))
@@ -193,7 +202,7 @@ export default function PlaylistDetailPage() {
               >
                 <Shuffle className="h-5 w-5" />
               </Button>
-              {canEdit && tracks.length > 1 && (
+              {canEditOrder && tracks.length > 1 && (
                 <Button variant="secondary" onClick={startOrdering} className="gap-2">
                   <ListOrdered className="h-4 w-4" />
                   Editar orden
@@ -283,7 +292,7 @@ export default function PlaylistDetailPage() {
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary"><Users className="h-5 w-5" /></div>
               <div>
                 <p className="text-sm font-medium">Edición compartida</p>
-                <p className="mt-0.5 text-sm leading-5 text-muted-foreground">Añade personas por su alias. Podrán añadir y quitar canciones de esta playlist.</p>
+                <p className="mt-0.5 text-sm leading-5 text-muted-foreground">Añade personas por su alias. Podrán añadir y quitar canciones; puedes autorizar aparte quién decide el orden.</p>
               </div>
             </div>
           </div>
@@ -301,7 +310,7 @@ export default function PlaylistDetailPage() {
             ) : (
               <div className="max-h-52 space-y-1 overflow-y-auto rounded-xl border border-border p-1.5">
                 {(data?.collaborators ?? (data?.collaboratorUsernames ?? []).map((username) => ({ username, displayName: username }))).map((person) => (
-                  <div key={person.username} className="flex min-w-0 items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm hover:bg-secondary/70"><Avatar name={person.displayName} src={person.avatar} className="h-8 w-8 text-xs" /><span className="min-w-0 flex-1 truncate font-medium">@{person.username}</span>{isOwner && <Button variant="ghost" size="icon-sm" className="shrink-0 text-muted-foreground hover:text-status-failed" aria-label={`Eliminar a ${person.username}`} onClick={() => removeCollaborator(person.username)}><X className="h-4 w-4" /></Button>}</div>
+                  <div key={person.username} className="flex min-w-0 items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm hover:bg-secondary/70"><Avatar name={person.displayName} src={person.avatar} className="h-8 w-8 text-xs" /><div className="min-w-0 flex-1"><span className="block truncate font-medium">@{person.username}</span>{person.canReorder && <span className="flex items-center gap-1 text-xs text-primary"><ShieldCheck className="h-3.5 w-3.5" />Puede editar el orden</span>}</div>{isOwner && <div className="flex shrink-0 items-center gap-1"><Button variant={person.canReorder ? "secondary" : "ghost"} size="sm" onClick={() => void setCollaboratorReorderPermission(person.username, !person.canReorder)}>{person.canReorder ? "Quitar orden" : "Autorizar orden"}</Button><Button variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-status-failed" aria-label={`Eliminar a ${person.username}`} onClick={() => removeCollaborator(person.username)}><X className="h-4 w-4" /></Button></div>}</div>
                 ))}
               </div>
             )}

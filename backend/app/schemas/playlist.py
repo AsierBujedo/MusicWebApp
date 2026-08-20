@@ -32,6 +32,10 @@ class AddCollaboratorInput(CamelModel):
     username: str = Field(min_length=1, max_length=64)
 
 
+class UpdateCollaboratorInput(CamelModel):
+    can_reorder: bool
+
+
 class PlaylistOut(CamelModel):
     id: str
     name: str

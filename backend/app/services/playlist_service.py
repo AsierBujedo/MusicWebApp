@@ -56,6 +56,12 @@ def can_edit(pl: Playlist, user: User) -> bool:
     return pl.owner_user_id == user.id or any(row.user_id == user.id for row in pl.collaborators)
 
 
+def can_reorder(pl: Playlist, user: User) -> bool:
+    return pl.owner_user_id == user.id or any(
+        row.user_id == user.id and row.can_reorder for row in pl.collaborators
+    )
+
+
 def add_collaborator(db: DbSession, pl: Playlist, username: str) -> Playlist:
     alias = username.strip().lower().removeprefix("@")
     user = db.scalar(select(User).where(User.username == alias))
@@ -81,6 +87,23 @@ def remove_collaborator(db: DbSession, pl: Playlist, username: str) -> Playlist:
             PlaylistCollaborator.playlist_id == pl.id, PlaylistCollaborator.user_id == user.id
         )
     )
+    db.commit()
+    db.refresh(pl)
+    return pl
+
+
+def set_collaborator_reorder_permission(
+    db: DbSession, pl: Playlist, username: str, *, can_reorder: bool
+) -> Playlist:
+    alias = username.strip().lower().removeprefix("@")
+    user = db.scalar(select(User).where(User.username == alias))
+    if user is None:
+        raise PlaylistError("Usuario no encontrado")
+    collaborator = next((row for row in pl.collaborators if row.user_id == user.id), None)
+    if collaborator is None:
+        raise PlaylistError("La persona no tiene acceso a esta playlist")
+    collaborator.can_reorder = can_reorder
+    pl.updated_at = utcnow()
     db.commit()
     db.refresh(pl)
     return pl

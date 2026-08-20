@@ -43,6 +43,9 @@ class PlaylistCollaborator(Base):
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
     playlist_id: Mapped[str] = mapped_column(ForeignKey("playlists.id", ondelete="CASCADE"), index=True, nullable=False)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+    # Collaborators can manage tracks, but changing the playback sequence is
+    # opt-in and granted only by the playlist owner.
+    can_reorder: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
 
 class PlaylistTrack(Base):

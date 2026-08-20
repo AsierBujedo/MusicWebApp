@@ -125,8 +125,17 @@ def playlist_out(db: DbSession, pl: Playlist) -> Dict[str, Any]:
                 ).all()
             ],
             "collaborators": [
-                {"username": user.username, "displayName": user.display_name, "avatar": user.avatar}
-                for user in db.scalars(select(User).join(PlaylistCollaborator, PlaylistCollaborator.user_id == User.id).where(PlaylistCollaborator.playlist_id == pl.id)).all()
+                {
+                    "username": user.username,
+                    "displayName": user.display_name,
+                    "avatar": user.avatar,
+                    "canReorder": collaborator.can_reorder,
+                }
+                for collaborator, user in db.execute(
+                    select(PlaylistCollaborator, User)
+                    .join(User, PlaylistCollaborator.user_id == User.id)
+                    .where(PlaylistCollaborator.playlist_id == pl.id)
+                ).all()
             ],
         }
     )
