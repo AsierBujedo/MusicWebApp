@@ -111,7 +111,7 @@ export default function ProfilePage() {
   const uploadAvatar = async (file?: File) => { if (!file) return; try { await api.uploadAvatar(file); await globalMutate("auth:me"); toast("Foto de perfil actualizada", "success") } catch { toast("No se pudo subir la foto", "error") } finally { if (avatarInput.current) avatarInput.current.value = "" } }
   const openEmail = () => { setEmail(user.email ?? ""); setEmailOpen(true) }
   const saveEmail = async (event: React.FormEvent) => { event.preventDefault(); if (!email.trim()) return; setSavingEmail(true); try { await api.updateProfileEmail(email); await globalMutate("auth:me"); setEmailOpen(false); toast("Correo actualizado", "success") } catch { toast("No se pudo actualizar el correo", "error") } finally { setSavingEmail(false) } }
-  const startDemo = async (target: User) => { try { await api.startDemo(target.id); await globalMutate("auth:me"); setDemoOpen(false); toast(`Modo demo: @${target.username}`, "info"); router.push("/") } catch { toast("No se pudo iniciar el modo demo", "error") } }
+  const startDemo = async (target: User) => { try { await api.startDemo(target.id); await globalMutate("auth:me"); await globalMutate("demo:status"); setDemoOpen(false); toast(`Modo demo: @${target.username}`, "info"); router.push("/") } catch { toast("No se pudo iniciar el modo demo", "error") } }
 
   return (
     <div>
