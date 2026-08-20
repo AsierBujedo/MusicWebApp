@@ -339,7 +339,12 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           onTimeUpdate={(e) => setPosition(e.currentTarget.currentTime)}
           onEnded={() => next()}
           onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
+          // Browsers emit `pause` immediately after `ended`. Do not let that
+          // terminal pause override `next()` starting the following playlist
+          // item; ordinary user-initiated pauses still update the UI.
+          onPause={(event) => {
+            if (!event.currentTarget.ended) setIsPlaying(false)
+          }}
           preload="auto"
           // Keeps audio alive in the background instead of forcing fullscreen video UI on iOS.
           playsInline
