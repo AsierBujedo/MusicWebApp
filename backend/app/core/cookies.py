@@ -43,3 +43,13 @@ def clear_session_cookie(response: Response) -> None:
         secure=secure,
         path="/",
     )
+
+
+def set_demo_admin_cookie(response: Response, token: str) -> None:
+    samesite, secure = _cookie_policy()
+    response.set_cookie(key=f"{settings.session_cookie_name}_demo_admin", value=token, max_age=3600, httponly=True, samesite=samesite, secure=secure, path="/")
+
+
+def clear_demo_admin_cookie(response: Response) -> None:
+    samesite, secure = _cookie_policy()
+    response.delete_cookie(key=f"{settings.session_cookie_name}_demo_admin", httponly=True, samesite=samesite, secure=secure, path="/")

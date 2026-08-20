@@ -144,4 +144,8 @@ export interface MusicApi {
   setRequestStatus(id: string, status: "APPROVED" | "REJECTED"): Promise<MusicRequest>
   getServices(): Promise<ServiceHealth[]>
   resetSlskd(): Promise<{ success: boolean; cancelled: number; failed: number; restarted: boolean }>
+  getDemoUsers(): Promise<User[]>
+  startDemo(userId: string): Promise<{ user: User; impersonatedBy: string }>
+  exitDemo(): Promise<User>
+  getDemoStatus(): Promise<{ active: boolean; adminName?: string }>
 }

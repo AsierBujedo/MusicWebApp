@@ -245,6 +245,10 @@ class RealApi implements MusicApi {
   resetSlskd() {
     return request<{ success: boolean; cancelled: number; failed: number; restarted: boolean }>("/api/admin/services/slskd/reset", { method: "POST" })
   }
+  getDemoUsers() { return request<User[]>("/api/admin/demo/users") }
+  startDemo(userId: string) { return request<{ user: User; impersonatedBy: string }>(`/api/admin/demo/${userId}`, { method: "POST" }) }
+  exitDemo() { return request<User>("/api/admin/demo/exit", { method: "POST" }) }
+  getDemoStatus() { return request<{ active: boolean; adminName?: string }>("/api/admin/demo/status") }
 }
 
 export const realApi = new RealApi()

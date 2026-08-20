@@ -526,6 +526,10 @@ class MockApi implements MusicApi {
     await delay(400)
     return { success: true, cancelled: 0, failed: 0, restarted: true }
   }
+  async getDemoUsers(): Promise<User[]> { return this.users.map((user) => ({ ...user })) }
+  async startDemo(userId: string): Promise<{ user: User; impersonatedBy: string }> { const user = this.users.find((item) => item.id === userId); if (!user) throw new ApiError("Usuario no encontrado", 404); return { user: { ...user }, impersonatedBy: "Admin" } }
+  async exitDemo(): Promise<User> { return { ...this.users[0] } }
+  async getDemoStatus(): Promise<{ active: boolean; adminName?: string }> { return { active: false } }
 }
 
 export const mockApi = new MockApi()

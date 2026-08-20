@@ -3,12 +3,15 @@ from __future__ import annotations
 
 import asyncio
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session as DbSession
 
 from app.database import get_db
-from app.dependencies import get_current_admin, require_admin_feature
+from app.config import settings
+from app.dependencies import get_current_admin, get_current_user, require_admin_feature
+from app.core.cookies import clear_demo_admin_cookie, set_demo_admin_cookie, set_session_cookie
+from app.core.features import require_feature
 from app.core.features import ADMIN_FEATURES
 from app.models.music_request import MusicRequest
 from app.models.track import Track
@@ -21,8 +24,46 @@ from app.services.integrations import (
     get_slskd_client,
 )
 from app.services.serializers import request_out, track_out, user_out
+from app.services import auth_service
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
+
+
+@router.get("/demo/users")
+def demo_users(_admin: User = Depends(get_current_admin), db: DbSession = Depends(get_db)):
+    return [user_out(user) for user in user_service.list_users(db) if user.id != _admin.id]
+
+
+@router.post("/demo/{user_id}")
+def start_demo(user_id: str, request: Request, response: Response, admin: User = Depends(get_current_admin), db: DbSession = Depends(get_db)):
+    target = user_service.get_user(db, user_id)
+    if target is None or not target.active:
+        raise HTTPException(status_code=404, detail="Usuario no disponible")
+    original = request.cookies.get(settings.session_cookie_name, "")
+    if not original:
+        raise HTTPException(status_code=401, detail="Sesión no válida")
+    set_demo_admin_cookie(response, original)
+    set_session_cookie(response, auth_service.create_session(db, target))
+    return {"user": user_out(target), "impersonatedBy": admin.display_name}
+
+
+@router.post("/demo/exit")
+def exit_demo(request: Request, response: Response, db: DbSession = Depends(get_db)):
+    original = request.cookies.get(f"{settings.session_cookie_name}_demo_admin", "")
+    resolved = auth_service.resolve_session(db, original)
+    if resolved is None or resolved[1].role != "ADMIN":
+        clear_demo_admin_cookie(response)
+        raise HTTPException(status_code=401, detail="La sesión administrativa ya no está disponible")
+    set_session_cookie(response, original)
+    clear_demo_admin_cookie(response)
+    return user_out(resolved[1])
+
+
+@router.get("/demo/status")
+def demo_status(request: Request, user: User = Depends(get_current_user), db: DbSession = Depends(get_db)):
+    original = request.cookies.get(f"{settings.session_cookie_name}_demo_admin", "")
+    resolved = auth_service.resolve_session(db, original)
+    return {"active": resolved is not None, "adminName": resolved[1].display_name if resolved else None, "userId": user.id}
 
 
 # ------------------------------- Stats -------------------------------

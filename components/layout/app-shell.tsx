@@ -1,6 +1,9 @@
 "use client"
 
 import { Loader2 } from "lucide-react"
+import useSWR, { useSWRConfig } from "swr"
+import { api } from "@/lib/api"
+import { Button } from "@/components/ui/button"
 import { useAuth } from "@/components/providers/auth-provider"
 import { usePlayer } from "@/components/providers/player-provider"
 import { Sidebar } from "@/components/layout/sidebar"
@@ -13,6 +16,8 @@ import { AccountSetupModal } from "@/components/account-setup-modal"
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
   const { currentTrack } = usePlayer()
+  const { mutate } = useSWRConfig()
+  const { data: demo } = useSWR(user ? "demo:status" : null, () => api.getDemoStatus())
 
   if (loading) {
     return (
@@ -32,6 +37,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-dvh bg-background">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
+        {demo?.active && <div className="flex flex-wrap items-center justify-center gap-3 bg-amber-400 px-4 py-2 text-sm font-medium text-black">Modo demo: estás operando como @{user.username} por cuenta de {demo.adminName}.<Button size="sm" variant="secondary" onClick={() => void api.exitDemo().then(() => mutate("auth:me"))}>Volver a mi cuenta</Button></div>}
         <TopBar />
         <main
           className={`app-content mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6${hasPlayer ? " app-content-with-player" : ""}`}

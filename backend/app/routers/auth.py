@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session as DbSession
 
 from app.config import settings
-from app.core.cookies import clear_session_cookie, set_session_cookie
+from app.core.cookies import clear_session_cookie, set_session_cookie, clear_demo_admin_cookie
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
@@ -36,6 +36,7 @@ def logout(request: Request, response: Response, db: DbSession = Depends(get_db)
     raw_token = request.cookies.get(settings.session_cookie_name, "")
     auth_service.revoke_session(db, raw_token)
     clear_session_cookie(response)
+    clear_demo_admin_cookie(response)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

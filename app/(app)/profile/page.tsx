@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import useSWR, { useSWRConfig } from "swr"
 import { LogOut, Heart, ListMusic, Inbox, Shield, Moon, Sun, ChevronRight, KeyRound, Music2, Check, Camera, Mail } from "lucide-react"
 import Link from "next/link"
-import type { HistoryEntry, Playlist, Track, MusicRequest } from "@/types/api"
+import type { HistoryEntry, Playlist, Track, MusicRequest, User } from "@/types/api"
 import { api } from "@/lib/api"
 import { useAuth } from "@/components/providers/auth-provider"
 import { useTheme } from "@/components/providers/theme-provider"
@@ -32,6 +32,7 @@ export default function ProfilePage() {
   const [spotifyOpen, setSpotifyOpen] = React.useState(false)
   const [selectedSpotifyPlaylists, setSelectedSpotifyPlaylists] = React.useState<string[]>([])
   const [importingSpotify, setImportingSpotify] = React.useState(false)
+  const [demoOpen, setDemoOpen] = React.useState(false)
   const avatarInput = React.useRef<HTMLInputElement>(null)
 
   const { data: favorites } = useSWR<Track[]>(user ? "favorites" : null, () => api.getFavorites())
@@ -46,6 +47,7 @@ export default function ProfilePage() {
     spotifyOpen && spotifyStatus?.connected ? "spotify:playlists" : null,
     () => api.getSpotifyPlaylists(),
   )
+  const { data: demoUsers } = useSWR<User[]>(demoOpen && isAdmin ? "demo:users" : null, () => api.getDemoUsers())
 
   React.useEffect(() => {
     const outcome = searchParams.get("spotify")
@@ -109,6 +111,7 @@ export default function ProfilePage() {
   const uploadAvatar = async (file?: File) => { if (!file) return; try { await api.uploadAvatar(file); await globalMutate("auth:me"); toast("Foto de perfil actualizada", "success") } catch { toast("No se pudo subir la foto", "error") } finally { if (avatarInput.current) avatarInput.current.value = "" } }
   const openEmail = () => { setEmail(user.email ?? ""); setEmailOpen(true) }
   const saveEmail = async (event: React.FormEvent) => { event.preventDefault(); if (!email.trim()) return; setSavingEmail(true); try { await api.updateProfileEmail(email); await globalMutate("auth:me"); setEmailOpen(false); toast("Correo actualizado", "success") } catch { toast("No se pudo actualizar el correo", "error") } finally { setSavingEmail(false) } }
+  const startDemo = async (target: User) => { try { await api.startDemo(target.id); await globalMutate("auth:me"); setDemoOpen(false); toast(`Modo demo: @${target.username}`, "info"); router.push("/") } catch { toast("No se pudo iniciar el modo demo", "error") } }
 
   return (
     <div>
@@ -199,8 +202,13 @@ export default function ProfilePage() {
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </Link>
           )}
+          {isAdmin && user.featureFlags?.includes("admin.demo") && <button onClick={() => setDemoOpen(true)} className="flex w-full items-center gap-3 border-t border-border px-4 py-3.5 text-left transition-colors hover:bg-secondary"><Shield className="h-5 w-5 text-muted-foreground" /><div className="flex-1"><p className="text-sm font-medium">Modo demo</p><p className="text-xs text-muted-foreground">Entrar temporalmente como otra persona</p></div><ChevronRight className="h-5 w-5 text-muted-foreground" /></button>}
         </div>
       </div>
+
+      <Modal open={demoOpen} onClose={() => setDemoOpen(false)} title="Modo demo" description="Operarás temporalmente como esta persona. Podrás volver a tu cuenta desde el aviso superior.">
+        <div className="max-h-80 space-y-1 overflow-y-auto">{demoUsers?.map((target) => <button key={target.id} onClick={() => void startDemo(target)} className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left hover:bg-secondary"><Avatar name={target.displayName} src={target.avatar} className="h-9 w-9" /><span className="min-w-0"><span className="block truncate text-sm font-medium">{target.displayName}</span><span className="block text-xs text-muted-foreground">@{target.username}</span></span></button>)}</div>
+      </Modal>
 
       <div className="mt-6 space-y-2">
         <h3 className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Cuenta y seguridad</h3>

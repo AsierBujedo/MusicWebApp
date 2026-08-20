@@ -6,6 +6,7 @@ ADMIN_FEATURES = {
     "admin.requests": "Moderar solicitudes",
     "admin.library": "Ver biblioteca completa",
     "admin.services": "Gestionar servicios",
+    "admin.demo": "Modo demo",
 }
 
 
