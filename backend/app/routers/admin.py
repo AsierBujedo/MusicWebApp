@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session as DbSession
 
 from app.database import get_db
 from app.config import settings
-from app.dependencies import get_current_admin, get_current_user, require_admin_feature
+from app.dependencies import get_current_admin, get_current_user, require_admin_feature, require_any_admin_feature
 from app.core.cookies import clear_demo_admin_cookie, set_demo_admin_cookie, set_session_cookie
 from app.core.features import effective_features, require_feature
 from app.core.features import ADMIN_FEATURES
@@ -69,7 +69,7 @@ def demo_status(request: Request, user: User = Depends(get_current_user), db: Db
 # ------------------------------- Stats -------------------------------
 
 @router.get("/stats")
-def stats(_admin: User = Depends(get_current_admin), db: DbSession = Depends(get_db)):
+def stats(_admin: User = Depends(require_any_admin_feature), db: DbSession = Depends(get_db)):
     users = db.scalar(select(func.count()).select_from(User)) or 0
     requests = db.scalar(select(func.count()).select_from(MusicRequest)) or 0
     downloads = (

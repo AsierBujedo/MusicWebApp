@@ -19,7 +19,7 @@ const STATUS_DOT: Record<ServiceHealth["status"], string> = {
 export default function AdminDashboardPage() {
   const { isAdmin, hasFeature } = useAuth()
   const can = (feature: string) => isAdmin || hasFeature(feature)
-  const { data: stats, isLoading } = useSWR<AdminStats>(isAdmin ? "admin:stats" : null, () => api.getStats(), { refreshInterval: 5000 })
+  const { data: stats, isLoading } = useSWR<AdminStats>(isAdmin || ["admin.users", "admin.requests", "admin.library", "admin.services"].some(hasFeature) ? "admin:stats" : null, () => api.getStats(), { refreshInterval: 5000 })
   const { data: requests } = useSWR<MusicRequest[]>(can("admin.requests") ? "admin:requests" : null, () => api.getAllRequests(), { refreshInterval: 4000 })
   const { data: services } = useSWR<ServiceHealth[]>(can("admin.services") ? "admin:services" : null, () => api.getServices(), { refreshInterval: 8000 })
 

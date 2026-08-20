@@ -32,3 +32,12 @@ def require_admin_feature(feature_key: str):
         require_feature(user, feature_key)
         return user
     return dependency
+
+
+def require_any_admin_feature(user: User = Depends(get_current_user)) -> User:
+    """Grant access to the delegated-admin landing page when any admin flag exists."""
+    from app.core.features import ADMIN_FEATURES, has_feature
+
+    if not any(has_feature(user, feature) for feature in ADMIN_FEATURES):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tienes acceso a administración")
+    return user
