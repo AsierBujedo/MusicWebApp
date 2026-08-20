@@ -83,6 +83,9 @@ class RealApi implements MusicApi {
   cancelRequest(id: string) {
     return request<void>(`/api/requests/${id}/cancel`, { method: "POST" })
   }
+  cancelTrackRequest(trackId: string) {
+    return request<void>(`/api/requests/track/${trackId}/cancel`, { method: "POST" })
+  }
   async uploadRequestAudio(id: string, file: File) {
     const form = new FormData()
     form.append("file", file)

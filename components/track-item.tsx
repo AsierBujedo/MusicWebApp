@@ -41,6 +41,9 @@ export function TrackItem({
   const activeRequest = (isAdmin ? allRequests : ownRequests)?.find(
     (request) => request.trackId === track.id && cancellableRequestStatuses.has(request.status),
   )
+  // The track model only exposes DOWNLOADING from the cancellable request
+  // stages. The request list adds the earlier APPROVED/SEARCHING states.
+  const canCancel = Boolean(activeRequest) || track.status === "DOWNLOADING"
 
   const handlePrimary = () => {
     if (!available) return
@@ -49,9 +52,9 @@ export function TrackItem({
   }
 
   const handleCancel = async () => {
-    if (!activeRequest) return
     try {
-      await api.cancelRequest(activeRequest.id)
+      if (activeRequest) await api.cancelRequest(activeRequest.id)
+      else await api.cancelTrackRequest(track.id)
       toast("Descarga anulada", "info")
       mutate("requests")
       mutate("admin:requests")
@@ -97,7 +100,7 @@ export function TrackItem({
       </div>
 
       <div className="flex items-center gap-1">
-        {activeRequest ? (
+        {canCancel ? (
           <Button
             size="icon-sm"
             variant="secondary"
@@ -135,12 +138,12 @@ export function TrackItem({
           <DropdownItem icon={ListPlus} onClick={() => addToPlaylist(track)}>
             Añadir a playlist
           </DropdownItem>
-          {!activeRequest && !available && track.status !== "DOWNLOADING" && (
+          {!canCancel && !available && track.status !== "DOWNLOADING" && (
             <DropdownItem icon={Download} onClick={() => requestTrack(track)}>
               Solicitar
             </DropdownItem>
           )}
-          {activeRequest && (
+          {canCancel && (
             <DropdownItem icon={CircleStop} destructive onClick={() => void handleCancel()}>
               Anular descarga
             </DropdownItem>
