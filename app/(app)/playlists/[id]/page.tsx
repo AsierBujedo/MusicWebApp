@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useParams, useRouter } from "next/navigation"
 import useSWR, { useSWRConfig } from "swr"
-import { Play, Shuffle, Trash2, ArrowLeft, Music, Share2, ImagePlus, X, Users, Camera } from "lucide-react"
+import { Play, Shuffle, Trash2, ArrowLeft, Music, Share2, ImagePlus, X, Users, Camera, ListOrdered, ChevronUp, ChevronDown, Save } from "lucide-react"
 import type { Playlist, Track } from "@/types/api"
 import { api, ApiError } from "@/lib/api"
 import { usePlayer } from "@/components/providers/player-provider"
@@ -41,6 +41,9 @@ export default function PlaylistDetailPage() {
   const [sharing, setSharing] = React.useState(false)
   const [alias, setAlias] = React.useState("")
   const [coverPicker, setCoverPicker] = React.useState(false)
+  const [ordering, setOrdering] = React.useState(false)
+  const [orderedTrackIds, setOrderedTrackIds] = React.useState<string[]>([])
+  const [savingOrder, setSavingOrder] = React.useState(false)
 
   const addCollaborator = async () => {
     if (!data || !alias.trim()) return
@@ -78,6 +81,41 @@ export default function PlaylistDetailPage() {
   const tracks = data?.tracks ?? []
   const playable = tracks.filter((t) => t.status === "AVAILABLE")
   const isOwner = !!data && data.ownerUsername === me?.username
+  const canEdit = !!data && (isOwner || data.collaboratorUsernames?.includes(me?.username ?? ""))
+  const orderedTracks = orderedTrackIds
+    .map((trackId) => tracks.find((track) => track.id === trackId))
+    .filter((track): track is Track => Boolean(track))
+
+  const startOrdering = () => {
+    setOrderedTrackIds(tracks.map((track) => track.id))
+    setOrdering(true)
+  }
+
+  const moveTrack = (from: number, to: number) => {
+    setOrderedTrackIds((current) => {
+      if (to < 0 || to >= current.length) return current
+      const next = [...current]
+      const [trackId] = next.splice(from, 1)
+      next.splice(to, 0, trackId)
+      return next
+    })
+  }
+
+  const saveOrder = async () => {
+    if (!data || savingOrder) return
+    setSavingOrder(true)
+    try {
+      const playlist = await api.reorderPlaylist(data.id, orderedTrackIds)
+      mutate(playlist, false)
+      globalMutate("playlists")
+      setOrdering(false)
+      toast("Orden de reproducción guardado", "success")
+    } catch {
+      toast("No se pudo guardar el orden", "error")
+    } finally {
+      setSavingOrder(false)
+    }
+  }
 
   const handleRemove = async (track: Track) => {
     if (!data) return
@@ -155,6 +193,12 @@ export default function PlaylistDetailPage() {
               >
                 <Shuffle className="h-5 w-5" />
               </Button>
+              {canEdit && tracks.length > 1 && (
+                <Button variant="secondary" onClick={startOrdering} className="gap-2">
+                  <ListOrdered className="h-4 w-4" />
+                  Editar orden
+                </Button>
+              )}
               {isOwner && <>
                 <Button variant="ghost" size="icon" aria-label="Eliminar playlist" onClick={() => setConfirmDelete(true)}>
                   <Trash2 className="h-5 w-5" />
@@ -178,6 +222,32 @@ export default function PlaylistDetailPage() {
           title="Playlist vacía"
           description="Añade canciones desde el buscador o con el menú de cualquier canción."
         />
+      ) : ordering ? (
+        <section className="max-w-3xl rounded-2xl border border-border bg-card p-3 sm:p-4">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="font-display text-lg font-semibold">Orden de reproducción</h2>
+              <p className="text-sm text-muted-foreground">Usa las flechas para decidir qué canción sonará después.</p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={() => setOrdering(false)} disabled={savingOrder}>Cancelar</Button>
+              <Button onClick={() => void saveOrder()} disabled={savingOrder} className="gap-2"><Save className="h-4 w-4" />{savingOrder ? "Guardando…" : "Guardar orden"}</Button>
+            </div>
+          </div>
+          <ol className="space-y-1">
+            {orderedTracks.map((track, index) => (
+              <li key={track.id} className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-secondary/60">
+                <span className="w-6 shrink-0 text-center text-sm tabular-nums text-muted-foreground">{index + 1}</span>
+                <CoverImage src={track.cover} alt="" className="h-11 w-11 shrink-0" />
+                <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{track.title}</p><p className="truncate text-xs text-muted-foreground">{track.artist}</p></div>
+                <div className="flex shrink-0 gap-1">
+                  <Button variant="ghost" size="icon-sm" aria-label={`Subir ${track.title}`} disabled={index === 0} onClick={() => moveTrack(index, index - 1)}><ChevronUp className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="icon-sm" aria-label={`Bajar ${track.title}`} disabled={index === orderedTracks.length - 1} onClick={() => moveTrack(index, index + 1)}><ChevronDown className="h-4 w-4" /></Button>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
       ) : (
         <TrackList tracks={tracks} onRemove={handleRemove} />
       )}

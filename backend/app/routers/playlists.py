@@ -194,5 +194,8 @@ def reorder(
     db: DbSession = Depends(get_db),
 ):
     pl = _load_editable(db, playlist_id, user)
-    pl = playlist_service.reorder(db, pl, payload.track_ids)
+    try:
+        pl = playlist_service.reorder(db, pl, payload.track_ids)
+    except playlist_service.PlaylistError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     return playlist_out(db, pl)

@@ -147,10 +147,16 @@ def remove_track(db: DbSession, pl: Playlist, track_id: str) -> Playlist:
 
 
 def reorder(db: DbSession, pl: Playlist, ordered_track_ids: List[str]) -> Playlist:
+    current_track_ids = [item.track_id for item in pl.items]
+    # A reorder is a complete ordering, not a partial update.  Rejecting an
+    # incomplete or duplicated payload prevents two rows retaining the same
+    # position and makes the contract deterministic for shared playlists.
+    if len(ordered_track_ids) != len(current_track_ids) or set(ordered_track_ids) != set(current_track_ids):
+        raise PlaylistError("El orden debe incluir todas las canciones de la playlist una sola vez")
+
     rows = {item.track_id: item for item in pl.items}
-    for index, track_id in enumerate(ordered_track_ids):
-        if track_id in rows:
-            rows[track_id].position = index
+    for index, track_id in enumerate(ordered_track_ids, start=1):
+        rows[track_id].position = index
     pl.updated_at = utcnow()
     db.commit()
     db.refresh(pl)
