@@ -9,7 +9,7 @@ import type {
   Track,
   User,
 } from "@/types/api"
-import { ApiError, type CreateRequestInput, type CreateUserInput, type MusicApi, type YouTubeCandidate } from "@/lib/api-types"
+import { ApiError, type CreateRequestInput, type CreateUserInput, type MusicApi, type SpotifyImportResult, type SpotifyPlaylist, type SpotifyStatus, type YouTubeCandidate } from "@/lib/api-types"
 
 // Base URL for the backend. In production the app is served behind the same
 // origin (`/api/*` -> backend), so an empty base resolves to relative paths.
@@ -53,6 +53,18 @@ class RealApi implements MusicApi {
       method: "POST",
       body: JSON.stringify({ currentPassword, newPassword }),
     })
+  }
+  getSpotifyStatus() {
+    return request<SpotifyStatus>("/api/integrations/spotify/status")
+  }
+  connectSpotify() {
+    return request<{ authorizationUrl: string }>("/api/integrations/spotify/connect", { method: "POST" })
+  }
+  getSpotifyPlaylists() {
+    return request<SpotifyPlaylist[]>("/api/integrations/spotify/playlists")
+  }
+  importSpotifyPlaylists(playlistIds: string[]) {
+    return request<SpotifyImportResult>("/api/integrations/spotify/import", { method: "POST", body: JSON.stringify({ playlistIds }) })
   }
 
   search(query: string) {

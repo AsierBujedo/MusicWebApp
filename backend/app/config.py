@@ -63,6 +63,12 @@ class Settings(BaseSettings):
     slskd_url: str = Field(default="", alias="SLSKD_URL")
     slskd_api_key: str = Field(default="", alias="SLSKD_API_KEY")
 
+    # Spotify is optional and used only to import a user's playlist metadata.
+    # Audio is never proxied from Spotify.
+    spotify_client_id: str = Field(default="", alias="SPOTIFY_CLIENT_ID")
+    spotify_client_secret: str = Field(default="", alias="SPOTIFY_CLIENT_SECRET")
+    spotify_redirect_uri: str = Field(default="", alias="SPOTIFY_REDIRECT_URI")
+
     # ---- Background worker ----
     request_poll_interval_seconds: int = Field(default=10, alias="REQUEST_POLL_INTERVAL_SECONDS")
     # Keep the homelab acquisition pipeline predictable. Additional approved

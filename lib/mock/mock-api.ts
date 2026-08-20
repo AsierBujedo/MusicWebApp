@@ -10,7 +10,7 @@ import type {
   Track,
   User,
 } from "@/types/api"
-import { ApiError, type CreateRequestInput, type CreateUserInput, type MusicApi, type YouTubeCandidate } from "@/lib/api-types"
+import { ApiError, type CreateRequestInput, type CreateUserInput, type MusicApi, type SpotifyImportResult, type SpotifyPlaylist, type SpotifyStatus, type YouTubeCandidate } from "@/lib/api-types"
 import {
   cover,
   MOCK_ALBUMS,
@@ -100,6 +100,23 @@ class MockApi implements MusicApi {
       throw new ApiError("La nueva contraseña debe tener al menos 6 caracteres.", 400)
     }
     this.passwords.set(user.id, newPassword)
+  }
+
+  async getSpotifyStatus(): Promise<SpotifyStatus> {
+    await delay(150)
+    return { configured: false, connected: false }
+  }
+
+  async connectSpotify(): Promise<{ authorizationUrl: string }> {
+    throw new ApiError("Spotify no está disponible en modo demo.", 400)
+  }
+
+  async getSpotifyPlaylists(): Promise<SpotifyPlaylist[]> {
+    throw new ApiError("Conecta Spotify primero.", 400)
+  }
+
+  async importSpotifyPlaylists(_playlistIds: string[]): Promise<SpotifyImportResult> {
+    throw new ApiError("Spotify no está disponible en modo demo.", 400)
   }
 
   async logout(): Promise<void> {

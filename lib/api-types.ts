@@ -20,6 +20,28 @@ export interface YouTubeCandidate {
   duration?: number
 }
 
+export interface SpotifyStatus {
+  configured: boolean
+  connected: boolean
+  displayName?: string
+}
+
+export interface SpotifyPlaylist {
+  id: string
+  name: string
+  description?: string
+  image?: string
+  trackCount: number
+  ownerName?: string
+}
+
+export interface SpotifyImportResult {
+  importedPlaylists: number
+  importedTracks: number
+  matchedTracks: number
+  playlists: string[]
+}
+
 export interface CreateRequestInput {
   type: "track" | "album" | "artist"
   trackId: string
@@ -50,6 +72,12 @@ export interface MusicApi {
   logout(): Promise<void>
   getCurrentUser(): Promise<User>
   changePassword(currentPassword: string, newPassword: string): Promise<void>
+
+  // Spotify playlist import
+  getSpotifyStatus(): Promise<SpotifyStatus>
+  connectSpotify(): Promise<{ authorizationUrl: string }>
+  getSpotifyPlaylists(): Promise<SpotifyPlaylist[]>
+  importSpotifyPlaylists(playlistIds: string[]): Promise<SpotifyImportResult>
 
   // search + tracks
   search(query: string): Promise<SearchResults>

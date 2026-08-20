@@ -18,7 +18,7 @@ from app.database import SessionLocal
 from app.models.base import utcnow
 from app.models.music_request import MusicRequest
 from app.models.track import Track
-from app.services import event_service, request_service
+from app.services import event_service, request_service, spotify_service
 from app.services.integrations import get_droppedneedle_client, get_navidrome_client
 from app.services.integrations.base import ExternalTrack
 
@@ -112,6 +112,13 @@ async def _advance_request(db, req: MusicRequest) -> None:
     droppedneedle = get_droppedneedle_client()
     try:
         if req.status == "APPROVED":
+            track = db.get(Track, req.track_id)
+            if track is not None and track.provider == "spotify" and not req.musicbrainz_id:
+                req.musicbrainz_id = await spotify_service.resolve_musicbrainz_recording(track)
+                if not req.musicbrainz_id:
+                    await _fail(db, req, "No se pudo identificar la canción importada desde Spotify")
+                    return
+                db.commit()
             submitted = await droppedneedle.request(
                 type=req.type,
                 title=req.title,

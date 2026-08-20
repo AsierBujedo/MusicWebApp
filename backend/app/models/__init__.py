@@ -5,6 +5,7 @@ from app.models.history import History
 from app.models.music_request import MusicRequest
 from app.models.playlist import Playlist, PlaylistCollaborator, PlaylistTrack
 from app.models.session import Session
+from app.models.spotify_connection import SpotifyConnection
 from app.models.track import Track
 from app.models.user import User
 
@@ -15,6 +16,7 @@ __all__ = [
     "Playlist",
     "PlaylistTrack",
     "Session",
+    "SpotifyConnection",
     "Track",
     "User",
 ]
