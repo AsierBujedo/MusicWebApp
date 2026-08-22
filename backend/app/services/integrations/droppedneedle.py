@@ -28,6 +28,35 @@ _musicbrainz_last_request_at = 0.0
 _musicbrainz_cache: dict[str, tuple[float, List[ExternalTrack]]] = {}
 
 
+def _preferred_release(releases: object, preferred_album: Optional[str] = None) -> dict[str, Any]:
+    """Choose a useful edition instead of MusicBrainz's arbitrary first one.
+
+    A recording can belong to its original album and many compilations. The
+    latter are poor Soulseek targets (and cause needless broad searches), so
+    prefer a non-compilation edition and, when known, the displayed album.
+    """
+    candidates = [release for release in releases if isinstance(release, dict)] if isinstance(releases, list) else []
+    if not candidates:
+        return {}
+    wanted = preferred_album.casefold().strip() if preferred_album else ""
+
+    def score(release: dict[str, Any]) -> tuple[int, int, int, str]:
+        group = release.get("release-group")
+        group = group if isinstance(group, dict) else {}
+        secondary = group.get("secondary-types") or []
+        secondary_text = " ".join(str(value).casefold() for value in secondary)
+        title = str(release.get("title") or "")
+        title_key = title.casefold()
+        compilation = int("compilation" in secondary_text or any(word in title_key for word in ("compilation", "greatest hits", "best of", "now that's")))
+        # Within normal releases, use displayed album metadata first. Official
+        # editions are safer when MusicBrainz supplies it.
+        album_mismatch = int(bool(wanted) and title_key != wanted)
+        unofficial = int(str(release.get("status") or "").casefold() not in {"", "official"})
+        return compilation, album_mismatch, unofficial, title_key
+
+    return min(candidates, key=score)
+
+
 class RealDroppedNeedleClient:
     def __init__(self) -> None:
         self._base = settings.droppedneedle_url.rstrip("/")
@@ -199,8 +228,7 @@ class RealDroppedNeedleClient:
                     artist_id = nested_artist.get("id") if isinstance(nested_artist, dict) else artist_id
                     artist_parts.append(str(credit.get("name") or nested_name or ""))
                     artist_parts.append(str(credit.get("joinphrase") or ""))
-            releases = recording.get("releases", [])
-            release = releases[0] if isinstance(releases, list) and releases and isinstance(releases[0], dict) else {}
+            release = _preferred_release(recording.get("releases", []))
             release_group = release.get("release-group") if isinstance(release, dict) else {}
             length = recording.get("length")
             try:
@@ -232,7 +260,7 @@ class RealDroppedNeedleClient:
             _musicbrainz_cache[cache_key] = (time.monotonic() + _MUSICBRAINZ_CACHE_TTL_SECONDS, tracks)
         return tracks
 
-    async def _recording_target(self, recording_mbid: str) -> dict[str, Any]:
+    async def _recording_target(self, recording_mbid: str, preferred_album: Optional[str] = None) -> dict[str, Any]:
         """Find an edition for a recording when search results omitted it.
 
         DroppedNeedle v2 requires an exact MusicBrainz release for recordings
@@ -260,8 +288,7 @@ class RealDroppedNeedleClient:
 
         if not isinstance(recording, dict):
             return {}
-        releases = recording.get("releases")
-        release = releases[0] if isinstance(releases, list) and releases and isinstance(releases[0], dict) else {}
+        release = _preferred_release(recording.get("releases"), preferred_album)
         release_group = release.get("release-group") if isinstance(release, dict) else {}
         artist = None
         credits = recording.get("artist-credit")
@@ -305,7 +332,7 @@ class RealDroppedNeedleClient:
                 # edition removes the ambiguity for recordings present in
                 # several releases (deluxe editions, compilations, etc.).
                 if not release_mbid:
-                    resolved = await self._recording_target(provider_id)
+                    resolved = await self._recording_target(provider_id, album)
                     album = album or resolved.get("album")
                     duration = duration or resolved.get("duration")
                     artist_mbid = artist_mbid or resolved.get("artist_mbid")
