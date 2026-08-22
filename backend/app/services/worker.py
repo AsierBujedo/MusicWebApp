@@ -46,7 +46,10 @@ async def _advance_once() -> None:
         # approved item.  This is intentionally independent of the old env
         # setting so a stale deployment cannot accidentally run in parallel.
         in_flight = next((req for req in active if req.status in {"SEARCHING", "DOWNLOADING"}), None)
-        due_retry = next((req for req in active if req.status == "FAILED" and req.soulseek_retry_at and req.soulseek_retry_at <= now), None)
+        # The SQL query above already restricts FAILED rows to due retries.
+        # SQLite may deserialize its timestamp as naive while ``utcnow()`` is
+        # aware, so do not repeat that comparison in Python.
+        due_retry = next((req for req in active if req.status == "FAILED"), None)
         next_request = in_flight or due_retry or next((req for req in active if req.status == "APPROVED"), None)
         if next_request is None:
             return
