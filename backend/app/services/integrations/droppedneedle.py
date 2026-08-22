@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import time
 from typing import Any, List, Optional
 
@@ -376,21 +377,104 @@ class RealDroppedNeedleClient:
             return False
 
     async def get_artist_catalog(self, artist_id: str, name: Optional[str] = None) -> dict:
+        data: dict[str, Any] = {}
         try:
-            return self._payload(await self._request("GET", f"/api/v1/artists/{artist_id}"))
+            data = self._payload(await self._request("GET", f"/api/v1/artists/{artist_id}"))
+            # Some DroppedNeedle builds acknowledge the artist but omit its
+            # releases. Do not treat that partial response as a catalogue.
+            if data.get("albums") or data.get("eps"):
+                return data
         except Exception:
             if not name:
                 logger.warning("DroppedNeedle artist lookup failed", exc_info=True)
-                return {}
+                return await self._musicbrainz_artist_catalog(artist_id, None)
+        if not name:
+            fallback = await self._musicbrainz_artist_catalog(artist_id, None)
+            return fallback or data
         try:
             raw = self._payload(await self._request("GET", "/api/v1/search", params={"q": name, "query": name, "limit_artists": 10, "limit_albums": 0, "buckets": "artists"}))
             candidates = raw.get("artists", []) if isinstance(raw, dict) else []
             candidate = next((item for item in candidates if isinstance(item, dict) and str(item.get("title") or item.get("name") or "").casefold() == name.casefold()), None)
             target_id = candidate.get("musicbrainz_id") if candidate else None
-            return self._payload(await self._request("GET", f"/api/v1/artists/{target_id}")) if target_id else {}
+            resolved = self._payload(await self._request("GET", f"/api/v1/artists/{target_id}")) if target_id else {}
+            if resolved.get("albums") or resolved.get("eps"):
+                return resolved
         except Exception:
             logger.warning("DroppedNeedle artist resolution failed", exc_info=True)
+        fallback = await self._musicbrainz_artist_catalog(artist_id, name)
+        if fallback:
+            # Retain any provider image rather than losing it to MusicBrainz.
+            if data.get("image") or data.get("thumb_url"):
+                fallback["image"] = data.get("image") or data.get("thumb_url")
+            return fallback
+        return data
+
+    async def _musicbrainz_artist_catalog(self, artist_id: str, name: Optional[str]) -> dict:
+        """Catalogue fallback independent of DroppedNeedle's search buckets."""
+        global _musicbrainz_last_request_at
+        try:
+            async with _musicbrainz_lock:
+                elapsed = time.monotonic() - _musicbrainz_last_request_at
+                if elapsed < _MUSICBRAINZ_MIN_INTERVAL_SECONDS:
+                    await asyncio.sleep(_MUSICBRAINZ_MIN_INTERVAL_SECONDS - elapsed)
+                _musicbrainz_last_request_at = time.monotonic()
+                mbid = artist_id
+                if not re.fullmatch(r"[0-9a-fA-F-]{36}", mbid):
+                    if not name:
+                        return {}
+                    found = await self._client.get(
+                        f"{_MUSICBRAINZ_API}/artist/",
+                        params={"query": f'artist:"{name}"', "fmt": "json", "limit": 5},
+                        headers={"User-Agent": _MUSICBRAINZ_USER_AGENT},
+                        timeout=httpx.Timeout(settings.musicbrainz_timeout_seconds),
+                    )
+                    found.raise_for_status()
+                    candidates = found.json().get("artists", [])
+                    exact = next((item for item in candidates if str(item.get("name") or "").casefold() == name.casefold()), None)
+                    if not exact or not exact.get("id"):
+                        return {}
+                    mbid = str(exact["id"])
+                response = await self._client.get(
+                    f"{_MUSICBRAINZ_API}/artist/{mbid}",
+                    params={"inc": "release-groups", "fmt": "json", "limit": 100},
+                    headers={"User-Agent": _MUSICBRAINZ_USER_AGENT},
+                    timeout=httpx.Timeout(settings.musicbrainz_timeout_seconds),
+                )
+            response.raise_for_status()
+            artist = response.json()
+        except (httpx.HTTPError, ValueError):
+            logger.warning("MusicBrainz artist catalogue fallback failed for %s", artist_id, exc_info=True)
             return {}
+        if not isinstance(artist, dict):
+            return {}
+        albums: list[dict[str, Any]] = []
+        eps: list[dict[str, Any]] = []
+        singles: list[dict[str, Any]] = []
+        for release in artist.get("release-groups", []):
+            if not isinstance(release, dict) or not release.get("id"):
+                continue
+            row = {
+                "id": str(release["id"]),
+                "title": str(release.get("title") or "Álbum sin título"),
+                "year": str(release.get("first-release-date") or "")[:4] or None,
+                "in_library": False,
+                "requested": False,
+            }
+            primary = str(release.get("primary-type") or "").casefold()
+            if primary == "album":
+                albums.append(row)
+            elif primary == "ep":
+                eps.append(row)
+            elif primary == "single":
+                singles.append(row)
+        sort_key = lambda row: (str(row.get("year") or "9999"), str(row["title"]).casefold())
+        return {
+            "musicbrainz_id": str(artist.get("id") or artist_id),
+            "name": str(artist.get("name") or name or "Artista"),
+            "albums": sorted(albums, key=sort_key),
+            "eps": sorted(eps, key=sort_key),
+            "singles": singles,
+        }
 
     async def get_album_catalog(self, album_id: str, artist: Optional[str] = None, title: Optional[str] = None) -> dict:
         try:

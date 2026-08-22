@@ -23,6 +23,7 @@ export default function SearchPage() {
   const [tab, setTab] = React.useState<Tab>("all")
   const [showAllArtists, setShowAllArtists] = React.useState(false)
   const [showAllAlbums, setShowAllAlbums] = React.useState(false)
+  const [artistFilter, setArtistFilter] = React.useState("")
   const { playQueue } = usePlayer()
 
   React.useEffect(() => {
@@ -35,6 +36,7 @@ export default function SearchPage() {
   React.useEffect(() => {
     setShowAllArtists(false)
     setShowAllAlbums(false)
+    setArtistFilter("")
   }, [debounced])
 
   const { data, isLoading } = useSWR<SearchResults>(
@@ -48,6 +50,8 @@ export default function SearchPage() {
   const showTracks = tab === "all" || tab === "tracks"
   const showAlbums = tab === "all" || tab === "albums"
   const showArtists = tab === "all" || tab === "artists"
+  const trackArtists = React.useMemo(() => Array.from(new Set((data?.tracks ?? []).map((track) => track.artist))).sort((a, b) => a.localeCompare(b)), [data?.tracks])
+  const filteredTracks = React.useMemo(() => (data?.tracks ?? []).filter((track) => !artistFilter || track.artist === artistFilter), [data?.tracks, artistFilter])
 
   return (
     <div>
@@ -143,9 +147,9 @@ export default function SearchPage() {
             <Section
               title="Canciones"
               action={
-                data!.tracks.some((t) => t.status === "AVAILABLE") ? (
+                filteredTracks.some((t) => t.status === "AVAILABLE") ? (
                   <button
-                    onClick={() => playQueue(data!.tracks.filter((t) => t.status === "AVAILABLE"))}
+                    onClick={() => playQueue(filteredTracks.filter((t) => t.status === "AVAILABLE"))}
                     className="text-sm font-medium text-primary hover:underline"
                   >
                     Reproducir
@@ -153,7 +157,13 @@ export default function SearchPage() {
                 ) : undefined
               }
             >
-              <TrackList tracks={data!.tracks as Track[]} />
+              {trackArtists.length > 1 && (
+                <div className="mb-4 flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                  <button onClick={() => setArtistFilter("")} className={cn("shrink-0 rounded-full px-3 py-1.5 text-xs font-medium", !artistFilter ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground")}>Todos los artistas</button>
+                  {trackArtists.map((artist) => <button key={artist} onClick={() => setArtistFilter(artist)} className={cn("shrink-0 rounded-full px-3 py-1.5 text-xs font-medium", artistFilter === artist ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground")}>{artist}</button>)}
+                </div>
+              )}
+              {filteredTracks.length > 0 ? <TrackList tracks={filteredTracks as Track[]} /> : <p className="text-sm text-muted-foreground">No hay canciones de este artista en los resultados.</p>}
             </Section>
           )}
         </div>

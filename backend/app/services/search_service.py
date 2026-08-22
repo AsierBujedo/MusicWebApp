@@ -84,13 +84,26 @@ async def search(db: DbSession, query: str) -> Dict[str, Any]:
     seen_artists = {a.name.casefold() for a in artists}
     albums = list(nav.albums)
     seen_albums = {(a.title.casefold(), a.artist.casefold()) for a in albums}
+    # MusicBrainz recording searches and DroppedNeedle's track facet do not
+    # include an artist album total. Count the distinct releases represented
+    # in this response so the UI never misleadingly prints “0 álbumes”.
+    albums_per_artist: dict[str, set[str]] = {}
     for ext in merged:
+        artist_key = ext.artist.casefold()
+        if ext.album:
+            albums_per_artist.setdefault(artist_key, set()).add(
+                str(ext.album_id or ext.album.casefold())
+            )
         if ext.artist and ext.artist.casefold() not in seen_artists:
             artists.append(ExternalArtist(provider=ext.provider, provider_id=ext.artist_id or ext.artist, name=ext.artist, image=ext.cover or (f"/api/covers/release-group/{ext.album_id}" if ext.provider == "droppedneedle" and ext.album_id else None)))
             seen_artists.add(ext.artist.casefold())
         if ext.album and (ext.album.casefold(), ext.artist.casefold()) not in seen_albums:
             albums.append(ExternalAlbum(provider=ext.provider, provider_id=ext.album_id or ext.album, title=ext.album, artist=ext.artist, artist_id=ext.artist_id, cover=ext.cover, year=ext.year, available=ext.available))
             seen_albums.add((ext.album.casefold(), ext.artist.casefold()))
+
+    for artist in artists:
+        if artist.album_count is None:
+            artist.album_count = len(albums_per_artist.get(artist.name.casefold(), set()))
 
     return {
         "tracks": tracks_out,
