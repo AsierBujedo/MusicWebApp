@@ -131,6 +131,13 @@ async def _advance_request(db, req: MusicRequest) -> None:
                 release_group_mbid=track.album_id if track is not None else None,
                 release_mbid=metadata.get("release_mbid"),
             )
+            if submitted.get("already_in_library"):
+                # DroppedNeedle has no task ID because it did not need to
+                # download. Move through the normal lifecycle and wait for
+                # Navidrome to expose the playable local item.
+                await _set_request_status(db, req, "SEARCHING")
+                await _publish_when_indexed(db, req)
+                return
             if not submitted.get("accepted") or not submitted.get("external_id"):
                 await _fail(db, req, str(submitted.get("reason") or "DroppedNeedle no aceptó la solicitud"))
                 return

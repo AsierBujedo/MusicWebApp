@@ -371,6 +371,12 @@ class RealDroppedNeedleClient:
                 or task.get("taskId")
                 or task.get("id")
             )
+            remote_status = str(data.get("status") or data.get("state") or "").casefold()
+            # API v2 intentionally omits task_id when the requested recording
+            # is already present in DroppedNeedle's managed library. This is a
+            # successful terminal answer, not a malformed submission.
+            if remote_status in {"already_in_library", "already-in-library"}:
+                return {"accepted": True, "external_id": None, "already_in_library": True, "reason": None}
             if not external_id:
                 logger.warning("DroppedNeedle accepted no task identifier: %s", data)
             return {
