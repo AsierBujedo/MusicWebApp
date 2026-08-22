@@ -7,6 +7,7 @@ playable song ID. Mock mode retains a deterministic simulated lifecycle.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from datetime import timedelta
 from typing import Optional
@@ -112,11 +113,23 @@ async def _advance_request(db, req: MusicRequest) -> None:
                     await _fail(db, req, "No se pudo identificar la canción importada desde Spotify")
                     return
                 db.commit()
+            metadata: dict = {}
+            if track is not None and track.metadata_json:
+                try:
+                    parsed = json.loads(track.metadata_json)
+                    metadata = parsed if isinstance(parsed, dict) else {}
+                except (TypeError, ValueError):
+                    logger.warning("Invalid metadata for track %s", track.id)
             submitted = await droppedneedle.request(
                 type=req.type,
                 title=req.title,
                 artist=req.artist,
                 provider_id=req.musicbrainz_id,
+                album=track.album if track is not None else None,
+                duration=track.duration if track is not None else None,
+                artist_mbid=track.artist_id if track is not None else None,
+                release_group_mbid=track.album_id if track is not None else None,
+                release_mbid=metadata.get("release_mbid"),
             )
             if not submitted.get("accepted") or not submitted.get("external_id"):
                 await _fail(db, req, str(submitted.get("reason") or "DroppedNeedle no aceptó la solicitud"))

@@ -228,17 +228,98 @@ class RealDroppedNeedleClient:
             _musicbrainz_cache[cache_key] = (time.monotonic() + _MUSICBRAINZ_CACHE_TTL_SECONDS, tracks)
         return tracks
 
-    async def request(self, *, type: str, title: str, artist: str, provider_id: Optional[str]) -> dict:
+    async def _recording_target(self, recording_mbid: str) -> dict[str, Any]:
+        """Find an edition for a recording when search results omitted it.
+
+        DroppedNeedle v2 requires an exact MusicBrainz release for recordings
+        which occur on multiple editions.  This lookup is deliberately best
+        effort: the original request still works for unambiguous recordings.
+        """
+        global _musicbrainz_last_request_at
+        try:
+            async with _musicbrainz_lock:
+                elapsed = time.monotonic() - _musicbrainz_last_request_at
+                if elapsed < _MUSICBRAINZ_MIN_INTERVAL_SECONDS:
+                    await asyncio.sleep(_MUSICBRAINZ_MIN_INTERVAL_SECONDS - elapsed)
+                _musicbrainz_last_request_at = time.monotonic()
+                response = await self._client.get(
+                    f"{_MUSICBRAINZ_API}/recording/{recording_mbid}",
+                    params={"inc": "releases+artist-credits", "fmt": "json"},
+                    headers={"User-Agent": _MUSICBRAINZ_USER_AGENT},
+                    timeout=httpx.Timeout(settings.musicbrainz_timeout_seconds),
+                )
+            response.raise_for_status()
+            recording = response.json()
+        except (httpx.HTTPError, ValueError):
+            logger.info("Could not resolve MusicBrainz edition for recording %s", recording_mbid)
+            return {}
+
+        if not isinstance(recording, dict):
+            return {}
+        releases = recording.get("releases")
+        release = releases[0] if isinstance(releases, list) and releases and isinstance(releases[0], dict) else {}
+        release_group = release.get("release-group") if isinstance(release, dict) else {}
+        artist = None
+        credits = recording.get("artist-credit")
+        if isinstance(credits, list):
+            for credit in credits:
+                nested = credit.get("artist") if isinstance(credit, dict) else None
+                if isinstance(nested, dict) and nested.get("id"):
+                    artist = nested["id"]
+                    break
+        length = recording.get("length")
+        try:
+            duration = int(int(length) / 1000) if length is not None else None
+        except (TypeError, ValueError):
+            duration = None
+        return {
+            "album": release.get("title") if isinstance(release, dict) else None,
+            "duration": duration,
+            "artist_mbid": artist,
+            "release_group_mbid": release_group.get("id") if isinstance(release_group, dict) else None,
+            "release_mbid": release.get("id") if isinstance(release, dict) else None,
+        }
+
+    async def request(
+        self,
+        *,
+        type: str,
+        title: str,
+        artist: str,
+        provider_id: Optional[str],
+        album: Optional[str] = None,
+        duration: Optional[int] = None,
+        artist_mbid: Optional[str] = None,
+        release_group_mbid: Optional[str] = None,
+        release_mbid: Optional[str] = None,
+    ) -> dict:
         try:
             if type == "track" and provider_id:
                 # Current DroppedNeedle API: a searched recording is requested
                 # by its MusicBrainz recording ID.  Its msgspec schema requires
-                # the artist and title in the JSON body; album/duration are
-                # optional because DroppedNeedle resolves the release itself.
+                # the artist and title in the JSON body.  Supplying the exact
+                # edition removes the ambiguity for recordings present in
+                # several releases (deluxe editions, compilations, etc.).
+                if not release_mbid:
+                    resolved = await self._recording_target(provider_id)
+                    album = album or resolved.get("album")
+                    duration = duration or resolved.get("duration")
+                    artist_mbid = artist_mbid or resolved.get("artist_mbid")
+                    release_group_mbid = release_group_mbid or resolved.get("release_group_mbid")
+                    release_mbid = resolved.get("release_mbid")
+                body: dict[str, Any] = {"artist_name": artist, "track_title": title}
+                optional_fields = {
+                    "album_title": album,
+                    "duration_seconds": duration,
+                    "artist_mbid": artist_mbid,
+                    "release_group_mbid": release_group_mbid,
+                    "release_id": release_mbid,
+                }
+                body.update({key: value for key, value in optional_fields.items() if value is not None})
                 response = await self._request(
                     "POST",
                     f"/api/v1/tracks/{provider_id}/request",
-                    json={"artist_name": artist, "track_title": title},
+                    json=body,
                 )
             else:
                 # Backwards-compatible fallback for request types without a

@@ -127,7 +127,19 @@ class MockDroppedNeedleClient:
     async def search(self, query: str, limit: int) -> List[ExternalTrack]:
         return [t for t in _CATALOG if _match(query, t.title, t.artist, t.album)][:limit]
 
-    async def request(self, *, type: str, title: str, artist: str, provider_id: Optional[str]) -> dict:
+    async def request(
+        self,
+        *,
+        type: str,
+        title: str,
+        artist: str,
+        provider_id: Optional[str],
+        album: Optional[str] = None,
+        duration: Optional[int] = None,
+        artist_mbid: Optional[str] = None,
+        release_group_mbid: Optional[str] = None,
+        release_mbid: Optional[str] = None,
+    ) -> dict:
         return {"accepted": True, "external_id": f"dn-req-{provider_id or title}"}
 
     async def get_status(self, external_id: str) -> dict:
