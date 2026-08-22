@@ -142,6 +142,7 @@ export interface MusicApi {
 
   // catalogue / full releases
   getArtistCatalog(id: string, name?: string): Promise<ArtistCatalog>
+  getArtistCachedTracks(id: string, name: string, query: string): Promise<Track[]>
   getAlbumCatalog(id: string, artist?: string, title?: string): Promise<AlbumCatalog>
   requestAlbum(id: string): Promise<{ success: boolean; message?: string }>
   requestArtist(id: string): Promise<{ success: boolean; requested: number; skipped: number; message?: string }>

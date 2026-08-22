@@ -3,14 +3,14 @@
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import useSWR from "swr"
 import * as React from "react"
-import { ArrowLeft, Download, Disc3 } from "lucide-react"
-import type { ArtistCatalog } from "@/types/api"
+import { ArrowLeft, Download, Disc3, Search } from "lucide-react"
+import type { ArtistCatalog, Track } from "@/types/api"
 import { api, ApiError } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { CoverImage } from "@/components/cover-image"
 import { MediaCard } from "@/components/media-card"
 import { EmptyState } from "@/components/empty-state"
-import { Section } from "@/components/track-list"
+import { Section, TrackList } from "@/components/track-list"
 import { useToast } from "@/components/providers/toast-provider"
 
 export default function ArtistPage() {
@@ -19,8 +19,12 @@ export default function ArtistPage() {
   const searchParams = useSearchParams()
   const { toast } = useToast()
   const [showAllReleases, setShowAllReleases] = React.useState(false)
+  const [trackQuery, setTrackQuery] = React.useState("")
+  const [debouncedTrackQuery, setDebouncedTrackQuery] = React.useState("")
   const name = searchParams.get("name") ?? undefined
   const { data, error, isLoading } = useSWR<ArtistCatalog>(id ? `artist:${id}:${name ?? ""}` : null, () => api.getArtistCatalog(id, name))
+  React.useEffect(() => { const timer = setTimeout(() => setDebouncedTrackQuery(trackQuery.trim()), 350); return () => clearTimeout(timer) }, [trackQuery])
+  const { data: cachedTracks, isLoading: cachedLoading } = useSWR<Track[]>(data && debouncedTrackQuery ? `artist-cached:${id}:${data.name}:${debouncedTrackQuery}` : null, () => api.getArtistCachedTracks(id, data!.name, debouncedTrackQuery))
 
   const requestAll = async () => {
     if (!data) return
@@ -44,6 +48,13 @@ export default function ArtistPage() {
         <Button className="mt-5 gap-2" onClick={requestAll} disabled={!releases.some((release) => !release.inLibrary)}><Download className="h-4 w-4" />Solicitar discografía</Button>
       </div>
     </div>
+    <Section title="Buscar canciones cacheadas" subtitle="Busca solo entre los resultados que Resonar ya conoce de este artista.">
+      <div className="relative max-w-xl">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <input value={trackQuery} onChange={(event) => setTrackQuery(event.target.value)} placeholder={`Buscar una canción de ${data.name}`} className="w-full rounded-xl border border-border bg-card py-2.5 pl-10 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-ring/30" />
+      </div>
+      {debouncedTrackQuery && <div className="mt-4">{cachedLoading ? <div className="skeleton h-16 rounded-xl" /> : (cachedTracks?.length ? <TrackList tracks={cachedTracks} /> : <p className="text-sm text-muted-foreground">No hay coincidencias cacheadas para esta canción todavía.</p>)}</div>}
+    </Section>
     <Section title="Álbumes y EPs" subtitle="Los singles, directos y recopilatorios se excluyen de la descarga completa." action={releases.length > 1 ? <button onClick={() => setShowAllReleases((value) => !value)} className="shrink-0 text-sm font-medium text-primary hover:underline">{showAllReleases ? "Mostrar menos" : "Mostrar más"}</button> : undefined}>
       {releases.length ? <div className={showAllReleases ? "grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5" : "flex gap-4 overflow-hidden"}>{releases.map((release) => <div key={release.id} className={showAllReleases ? "" : "w-32 shrink-0 sm:w-36 lg:w-40"}><MediaCard title={release.title} subtitle={`${release.year ?? ""}${release.inLibrary ? " · En biblioteca" : release.requested ? " · Solicitado" : ""}`} cover={release.cover} href={`/albums/${release.id}`} /></div>)}</div> : <EmptyState icon={Disc3} title="Sin álbumes" description="No se han encontrado álbumes o EPs para este artista." />}
     </Section>

@@ -12,6 +12,7 @@ import { TopBar } from "@/components/layout/top-bar"
 import { PlayerBar } from "@/components/layout/player-bar"
 import { LoginScreen } from "@/components/auth/login-screen"
 import { AccountSetupModal } from "@/components/account-setup-modal"
+import { ReplayWelcomeModal } from "@/components/replay-welcome-modal"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -48,6 +49,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <MobileNav />
       <PlayerBar />
       <AccountSetupModal user={user} />
+      <ReplayWelcomeModal user={user} />
     </div>
   )
 }

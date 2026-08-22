@@ -15,6 +15,7 @@ export interface User {
   active?: boolean
   lastSeen?: string
   featureFlags?: string[]
+  replayAccessRevision?: string
 }
 
 // Availability status shown on search results / tracks.

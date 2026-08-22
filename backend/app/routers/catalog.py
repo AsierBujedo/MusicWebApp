@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session as DbSession
 
 from app.database import get_db
 from app.dependencies import get_current_user
+from app.models.track import Track
 from app.models.user import User
 from app.services import library_service
 from app.services.integrations import get_droppedneedle_client
@@ -34,6 +36,35 @@ def _allow_bulk_requests(user: User) -> None:
         status_code=status.HTTP_403_FORBIDDEN,
         detail="Necesitas autoaprobación o ser administrador para solicitar álbumes completos.",
     )
+
+
+@router.get("/artists/{artist_id}/cached-tracks")
+def artist_cached_tracks(
+    artist_id: str,
+    name: str = Query(min_length=1, max_length=512),
+    q: str = Query(min_length=1, max_length=120),
+    _user: User = Depends(get_current_user),
+    db: DbSession = Depends(get_db),
+):
+    """Search only the catalogue rows already cached for one artist.
+
+    The artist id is preferred, while the normalized name makes results from
+    Navidrome and MusicBrainz interoperate when their provider IDs differ.
+    """
+    term = q.strip().casefold()
+    artist_name = name.strip().casefold()
+    if not term or not artist_name:
+        return []
+    rows = db.scalars(
+        select(Track)
+        .where(
+            or_(Track.artist_id == artist_id, func.lower(Track.artist) == artist_name),
+            func.lower(Track.title).contains(term),
+        )
+        .order_by(Track.available.desc(), Track.title.asc())
+        .limit(50)
+    ).all()
+    return [track_out(track) for track in rows]
 
 
 @router.get("/artists/{artist_id}")

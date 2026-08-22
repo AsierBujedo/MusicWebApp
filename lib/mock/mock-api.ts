@@ -545,6 +545,10 @@ class MockApi implements MusicApi {
   }
   getReplayImageUrl(_id: string) { return "/fallback-covers/abstract-08.webp" }
   getReplayStreamUrl(_id: string) { return "" }
+  async getArtistCachedTracks(_id: string, name: string, query: string): Promise<Track[]> {
+    const term = query.toLocaleLowerCase()
+    return [...this.tracks.values()].filter((track) => track.artist === name && track.title.toLocaleLowerCase().includes(term))
+  }
 }
 
 export const mockApi = new MockApi()

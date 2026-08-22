@@ -55,6 +55,10 @@ def track_out(track: Track) -> Dict[str, Any]:
 
 
 def user_out(user: User) -> Dict[str, Any]:
+    # A feature-row ID is intentionally exposed only as an opaque revision.
+    # It lets the client present an onboarding again when an administrator
+    # revokes and later grants the product feature anew.
+    replay_flag = next((flag for flag in user.feature_flags if flag.feature_key == "replay.access"), None)
     return _compact(
         {
             "id": user.id,
@@ -68,6 +72,7 @@ def user_out(user: User) -> Dict[str, Any]:
             "active": user.active,
             "lastSeen": iso(user.last_seen),
             "featureFlags": sorted(effective_features(user)),
+            "replayAccessRevision": replay_flag.id if replay_flag else None,
         }
     )
 

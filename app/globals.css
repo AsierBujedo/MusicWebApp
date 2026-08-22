@@ -176,6 +176,19 @@
   }
 }
 
+@keyframes replay-glow {
+  0%, 100% { transform: scale(0.9); opacity: 0.35; }
+  50% { transform: scale(1.15); opacity: 0.8; }
+}
+
+@keyframes replay-orbit {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.replay-glow { animation: replay-glow 3.2s ease-in-out infinite; }
+.replay-orbit { animation: replay-orbit 12s linear infinite; }
+
 .animate-in {
   animation: fade-in-up 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
 }

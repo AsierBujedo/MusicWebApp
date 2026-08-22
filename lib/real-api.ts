@@ -180,6 +180,9 @@ class RealApi implements MusicApi {
   getArtistCatalog(id: string, name?: string) {
     return request<import("@/types/api").ArtistCatalog>(`/api/catalog/artists/${id}${name ? `?name=${encodeURIComponent(name)}` : ""}`)
   }
+  getArtistCachedTracks(id: string, name: string, query: string) {
+    return request<Track[]>(`/api/catalog/artists/${id}/cached-tracks?name=${encodeURIComponent(name)}&q=${encodeURIComponent(query)}`)
+  }
   getAlbumCatalog(id: string, artist?: string, title?: string) {
     const query = new URLSearchParams()
     if (artist) query.set("artist", artist)
