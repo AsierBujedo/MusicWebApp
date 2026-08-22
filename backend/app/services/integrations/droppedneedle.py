@@ -40,19 +40,23 @@ def _preferred_release(releases: object, preferred_album: Optional[str] = None) 
         return {}
     wanted = preferred_album.casefold().strip() if preferred_album else ""
 
-    def score(release: dict[str, Any]) -> tuple[int, int, int, str]:
+    def score(release: dict[str, Any]) -> tuple[int, int, int, int, int, str]:
         group = release.get("release-group")
         group = group if isinstance(group, dict) else {}
         secondary = group.get("secondary-types") or []
         secondary_text = " ".join(str(value).casefold() for value in secondary)
         title = str(release.get("title") or "")
         title_key = title.casefold()
-        compilation = int("compilation" in secondary_text or any(word in title_key for word in ("compilation", "greatest hits", "best of", "now that's")))
-        # Within normal releases, use displayed album metadata first. Official
-        # editions are safer when MusicBrainz supplies it.
+        compilation = int("compilation" in secondary_text or any(word in title_key for word in ("compilation", "greatest hits", "best of", "now that's", "collection")))
+        live = int("live" in secondary_text or any(word in title_key for word in (" live", "concierto", "directo", "concert")))
+        primary_type = str(group.get("primary-type") or "").casefold()
+        # Original albums are considerably better Soulseek targets than
+        # singles, broadcasts and loose releases of the same recording.
+        primary_penalty = {"album": 0, "ep": 1, "single": 2}.get(primary_type, 3)
         album_mismatch = int(bool(wanted) and title_key != wanted)
         unofficial = int(str(release.get("status") or "").casefold() not in {"", "official"})
-        return compilation, album_mismatch, unofficial, title_key
+        first_date = str(group.get("first-release-date") or release.get("date") or "9999-99-99")
+        return compilation, live, primary_penalty, album_mismatch, unofficial, first_date
 
     return min(candidates, key=score)
 
@@ -205,7 +209,7 @@ class RealDroppedNeedleClient:
                 _musicbrainz_last_request_at = time.monotonic()
                 response = await self._client.get(
                     f"{_MUSICBRAINZ_API}/recording/",
-                    params={"query": query, "fmt": "json", "limit": limit},
+                    params={"query": query, "fmt": "json", "limit": limit, "inc": "releases+release-groups+artist-credits"},
                     headers={"User-Agent": _MUSICBRAINZ_USER_AGENT},
                     timeout=httpx.Timeout(settings.musicbrainz_timeout_seconds),
                 )
@@ -276,7 +280,7 @@ class RealDroppedNeedleClient:
                 _musicbrainz_last_request_at = time.monotonic()
                 response = await self._client.get(
                     f"{_MUSICBRAINZ_API}/recording/{recording_mbid}",
-                    params={"inc": "releases+artist-credits", "fmt": "json"},
+                    params={"inc": "releases+release-groups+artist-credits", "fmt": "json"},
                     headers={"User-Agent": _MUSICBRAINZ_USER_AGENT},
                     timeout=httpx.Timeout(settings.musicbrainz_timeout_seconds),
                 )
