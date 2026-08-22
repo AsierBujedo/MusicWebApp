@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     # token. This is deliberately separate from SLSKD_API_KEY.
     droppedneedle_username: str = Field(default="", alias="DROPPEDNEEDLE_USERNAME")
     droppedneedle_password: str = Field(default="", alias="DROPPEDNEEDLE_PASSWORD")
+    # Acquisition can legitimately spend time resolving an exact MusicBrainz
+    # edition before accepting a task; 15 seconds produced false failures.
+    droppedneedle_timeout_seconds: float = Field(default=60.0, alias="DROPPEDNEEDLE_TIMEOUT_SECONDS")
     # Used only by Resonar's server-side catalogue fallback when
     # DroppedNeedle's shorter upstream deadline is exceeded.
     musicbrainz_timeout_seconds: float = Field(default=30.0, alias="MUSICBRAINZ_TIMEOUT_SECONDS")

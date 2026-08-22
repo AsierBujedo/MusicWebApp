@@ -135,6 +135,9 @@ async def _advance_request(db, req: MusicRequest) -> None:
                 await _fail(db, req, str(submitted.get("reason") or "DroppedNeedle no aceptó la solicitud"))
                 return
             req.external_id = str(submitted["external_id"])
+            # Submission retries are only relevant until DroppedNeedle has
+            # accepted the task; do not carry them into a later Soulseek retry.
+            req.soulseek_retry_count = 0
             db.commit()
             await _set_request_status(db, req, "SEARCHING")
             return
@@ -261,14 +264,19 @@ async def _fail(db, req: MusicRequest, message: str) -> None:
         )
         return
 
-    rejected_by_droppedneedle = "droppedneedle no acept" in message.casefold() or "droppedneedle respondi" in message.casefold()
-    if rejected_by_droppedneedle:
+    recoverable_droppedneedle = (
+        "droppedneedle no acept" in message.casefold()
+        or "droppedneedle respondi" in message.casefold()
+        or "droppedneedle está tardando" in message.casefold()
+        or "no se pudo contactar con droppedneedle" in message.casefold()
+    )
+    if recoverable_droppedneedle:
         req.soulseek_retry_count += 1
         if req.soulseek_retry_count <= 2:
-            # Two quick submission retries are useful for a transient API or
-            # catalog race.  Requeue as APPROVED; the serial worker will pick
-            # it again on its next pass, before any later request.
-            req = request_service.transition(db, req, "FAILED", error_message=f"DroppedNeedle no aceptó la solicitud. Reintentando ({req.soulseek_retry_count}/2)…")
+            # Two quick submission retries absorb temporary timeouts and API
+            # races. The serial worker retries this item before moving on.
+            detail = "DroppedNeedle está tardando en responder" if "tardando" in message.casefold() else "DroppedNeedle no aceptó la solicitud"
+            req = request_service.transition(db, req, "FAILED", error_message=f"{detail}. Reintentando ({req.soulseek_retry_count}/2)…")
             req.external_id = None
             req = request_service.transition(db, req, "APPROVED", error_message=None)
             await event_service.emit_request_updated(request_id=req.id, status=req.status, progress=req.progress, owner_user_id=req.requested_by)

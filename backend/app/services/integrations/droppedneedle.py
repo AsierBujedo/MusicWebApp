@@ -31,7 +31,10 @@ _musicbrainz_cache: dict[str, tuple[float, List[ExternalTrack]]] = {}
 class RealDroppedNeedleClient:
     def __init__(self) -> None:
         self._base = settings.droppedneedle_url.rstrip("/")
-        self._client = httpx.AsyncClient(base_url=self._base, timeout=15.0)
+        self._client = httpx.AsyncClient(
+            base_url=self._base,
+            timeout=httpx.Timeout(settings.droppedneedle_timeout_seconds),
+        )
         self._token: Optional[str] = None
 
     async def _login(self) -> bool:
@@ -347,6 +350,17 @@ class RealDroppedNeedleClient:
                 "accepted": bool(external_id),
                 "external_id": str(external_id) if external_id else None,
                 "reason": "DroppedNeedle no devolvió un identificador de descarga" if not external_id else None,
+            }
+        except (httpx.TimeoutException, httpx.NetworkError) as exc:
+            # A request submission can be slow while DroppedNeedle resolves an
+            # edition. This is recoverable and must not be treated as a final
+            # failed download by the queue worker.
+            logger.warning("DroppedNeedle temporarily unavailable while submitting request: %s", type(exc).__name__)
+            return {
+                "accepted": False,
+                "external_id": None,
+                "reason": "DroppedNeedle está tardando demasiado en responder",
+                "retryable": True,
             }
         except httpx.HTTPStatusError as exc:
             response = exc.response
