@@ -109,6 +109,7 @@ export default function AdminUsersPage() {
     ["admin.library", "Biblioteca completa", "Consultar el catálogo completo de canciones."],
     ["admin.services", "Gestionar servicios", "Ver el estado y ejecutar mantenimiento de servicios."],
     ["admin.demo", "Modo demo", "Entrar temporalmente como una cuenta normal para soporte o pruebas."],
+    ["replay.access", "Replay", "Acceso al catálogo y reproductor de vídeo personal."],
   ] as const
 
   return (

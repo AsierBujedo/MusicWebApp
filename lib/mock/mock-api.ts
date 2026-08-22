@@ -10,7 +10,7 @@ import type {
   Track,
   User,
 } from "@/types/api"
-import { ApiError, type CreateRequestInput, type CreateUserInput, type MusicApi, type SpotifyImportResult, type SpotifyPlaylist, type SpotifyStatus, type YouTubeCandidate } from "@/lib/api-types"
+import { ApiError, type CreateRequestInput, type CreateUserInput, type MusicApi, type ReplayItem, type SpotifyImportResult, type SpotifyPlaylist, type SpotifyStatus, type YouTubeCandidate } from "@/lib/api-types"
 import {
   cover,
   MOCK_ALBUMS,
@@ -531,6 +531,20 @@ class MockApi implements MusicApi {
   async exitDemo(): Promise<User> { return { ...this.users[0] } }
   async getDemoStatus(): Promise<{ active: boolean; adminName?: string }> { return { active: false } }
   async syncPlayback(_payload: { track: Track; queue: Track[]; isPlaying: boolean; sourceId: string }): Promise<void> {}
+  async getReplayStatus(): Promise<{ configured: boolean }> { return { configured: true } }
+  async getReplayItems(): Promise<ReplayItem[]> {
+    return [
+      { id: "replay-1", title: "La gran aventura", type: "Movie", year: "2024", runtimeMinutes: 112, rating: 7.8, overview: "Una aventura disponible en tu biblioteca de vídeo.", hasImage: false },
+      { id: "replay-2", title: "Horizontes", type: "Series", year: "2025", rating: 8.1, overview: "Una serie de ejemplo para la vista previa de Replay.", hasImage: false },
+    ]
+  }
+  async getReplayItem(id: string): Promise<ReplayItem> {
+    const item = (await this.getReplayItems()).find((candidate) => candidate.id === id)
+    if (!item) throw new ApiError("Contenido no encontrado", 404)
+    return item
+  }
+  getReplayImageUrl(_id: string) { return "/fallback-covers/abstract-08.webp" }
+  getReplayStreamUrl(_id: string) { return "" }
 }
 
 export const mockApi = new MockApi()

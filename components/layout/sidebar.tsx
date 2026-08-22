@@ -11,6 +11,7 @@ export function Sidebar() {
   const pathname = usePathname()
   const { isAdmin, hasFeature } = useAuth()
   const adminItems = ADMIN_NAV.filter((item) => isAdmin || (item.feature && hasFeature(item.feature)))
+  const mainItems = MAIN_NAV.filter((item) => !item.feature || hasFeature(item.feature))
 
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(href + "/"))
 
@@ -22,7 +23,7 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-2 no-scrollbar">
-        {MAIN_NAV.map((item) => {
+        {mainItems.map((item) => {
           const Icon = item.icon
           const active = isActive(item.href)
           return (

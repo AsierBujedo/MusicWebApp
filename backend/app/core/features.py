@@ -9,10 +9,19 @@ ADMIN_FEATURES = {
     "admin.demo": "Modo demo",
 }
 
+# Product features are available to normal users when explicitly enabled by an
+# administrator. They are not administrative powers and must never unlock
+# /api/admin routes.
+USER_FEATURES = {
+    "replay.access": "Replay",
+}
+
+ALL_FEATURES = {**ADMIN_FEATURES, **USER_FEATURES}
+
 
 def effective_features(user) -> set[str]:
     if user.role == "ADMIN":
-        return set(ADMIN_FEATURES)
+        return set(ALL_FEATURES)
     return {row.feature_key for row in user.feature_flags}
 
 

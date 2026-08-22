@@ -9,7 +9,7 @@ import type {
   Track,
   User,
 } from "@/types/api"
-import { ApiError, type CreateRequestInput, type CreateUserInput, type MusicApi, type SpotifyImportResult, type SpotifyPlaylist, type SpotifyStatus, type YouTubeCandidate } from "@/lib/api-types"
+import { ApiError, type CreateRequestInput, type CreateUserInput, type MusicApi, type ReplayItem, type SpotifyImportResult, type SpotifyPlaylist, type SpotifyStatus, type YouTubeCandidate } from "@/lib/api-types"
 
 // Base URL for the backend. In production the app is served behind the same
 // origin (`/api/*` -> backend), so an empty base resolves to relative paths.
@@ -70,6 +70,11 @@ class RealApi implements MusicApi {
   importSpotifyPlaylists(playlistIds: string[]) {
     return request<SpotifyImportResult>("/api/integrations/spotify/import", { method: "POST", body: JSON.stringify({ playlistIds }) })
   }
+  getReplayStatus() { return request<{ configured: boolean }>("/api/replay/status") }
+  getReplayItems() { return request<ReplayItem[]>("/api/replay/items") }
+  getReplayItem(id: string) { return request<ReplayItem>(`/api/replay/items/${id}`) }
+  getReplayImageUrl(id: string) { return `${BASE}/api/replay/items/${id}/image` }
+  getReplayStreamUrl(id: string) { return `${BASE}/api/replay/items/${id}/stream` }
 
   search(query: string) {
     return request<SearchResults>(`/api/search?q=${encodeURIComponent(query)}`)

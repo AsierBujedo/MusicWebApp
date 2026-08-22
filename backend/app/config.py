@@ -60,6 +60,13 @@ class Settings(BaseSettings):
     navidrome_username: str = Field(default="", alias="NAVIDROME_USERNAME")
     navidrome_password: str = Field(default="", alias="NAVIDROME_PASSWORD")
 
+    # Replay reads the video catalogue and streams media from the existing
+    # Jellyfin server. Credentials stay server-side and are never exposed to
+    # the browser.
+    jellyfin_url: str = Field(default="", alias="JELLYFIN_URL")
+    jellyfin_username: str = Field(default="", alias="JELLYFIN_USERNAME")
+    jellyfin_password: str = Field(default="", alias="JELLYFIN_PASSWORD")
+
     slskd_url: str = Field(default="", alias="SLSKD_URL")
     slskd_api_key: str = Field(default="", alias="SLSKD_API_KEY")
     # slskd 0.25.x requires an administrator JWT (not an API key) to restart

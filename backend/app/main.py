@@ -27,6 +27,7 @@ from app.routers import (
     health,
     history,
     playback,
+    replay,
     playlists,
     requests,
     search,
@@ -108,7 +109,7 @@ if settings.cors_origins:
     )
 
 # Register routers.
-for module in (auth, search, tracks, stream, covers, catalog, requests, favorites, playlists, history, spotify, events, playback, admin, health):
+for module in (auth, search, tracks, stream, covers, catalog, requests, favorites, playlists, history, spotify, events, playback, replay, admin, health):
     app.include_router(module.router)
 
 # Keep the documented container probe stable while the frontend continues to

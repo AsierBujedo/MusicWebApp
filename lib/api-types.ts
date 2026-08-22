@@ -42,6 +42,20 @@ export interface SpotifyImportResult {
   playlists: string[]
 }
 
+export interface ReplayItem {
+  id: string
+  title: string
+  type: "Movie" | "Series" | "Episode" | string
+  overview?: string
+  year?: string
+  rating?: number
+  runtimeMinutes?: number
+  seriesName?: string
+  season?: number
+  episode?: number
+  hasImage: boolean
+}
+
 export interface CreateRequestInput {
   type: "track" | "album" | "artist"
   trackId: string
@@ -80,6 +94,13 @@ export interface MusicApi {
   connectSpotify(): Promise<{ authorizationUrl: string }>
   getSpotifyPlaylists(): Promise<SpotifyPlaylist[]>
   importSpotifyPlaylists(playlistIds: string[]): Promise<SpotifyImportResult>
+
+  // Replay / Jellyfin video library
+  getReplayStatus(): Promise<{ configured: boolean }>
+  getReplayItems(): Promise<ReplayItem[]>
+  getReplayItem(id: string): Promise<ReplayItem>
+  getReplayImageUrl(id: string): string
+  getReplayStreamUrl(id: string): string
 
   // search + tracks
   search(query: string): Promise<SearchResults>

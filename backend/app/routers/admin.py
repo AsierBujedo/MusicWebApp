@@ -12,7 +12,7 @@ from app.config import settings
 from app.dependencies import get_current_admin, get_current_user, require_admin_feature, require_any_admin_feature
 from app.core.cookies import clear_demo_admin_cookie, set_demo_admin_cookie, set_session_cookie
 from app.core.features import effective_features, require_feature
-from app.core.features import ADMIN_FEATURES
+from app.core.features import ALL_FEATURES
 from app.models.music_request import MusicRequest
 from app.models.track import Track
 from app.models.user import User, UserFeatureFlag
@@ -166,7 +166,7 @@ def update_feature_flags(user_id: str, payload: UpdateFeatureFlagsInput, admin: 
     if user.role == "ADMIN":
         raise HTTPException(status_code=400, detail="Los administradores ya tienen todas las funciones")
     requested = set(payload.feature_flags)
-    if not requested.issubset(ADMIN_FEATURES):
+    if not requested.issubset(ALL_FEATURES):
         raise HTTPException(status_code=400, detail="Feature flag no válida")
     db.query(UserFeatureFlag).filter(UserFeatureFlag.user_id == user.id).delete()
     db.add_all([UserFeatureFlag(user_id=user.id, feature_key=key) for key in requested])
