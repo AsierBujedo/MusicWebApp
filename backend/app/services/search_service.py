@@ -8,6 +8,7 @@ directly from the providers using their native ids so a track's ``albumId`` /
 """
 from __future__ import annotations
 
+import unicodedata
 from typing import Any, Dict, List
 
 from sqlalchemy.orm import Session as DbSession
@@ -46,6 +47,43 @@ def _normalise_query(query: str) -> str:
     return q if len(q) >= settings.search_min_query_length else ""
 
 
+def _fold(value: str | None) -> str:
+    value = unicodedata.normalize("NFKD", value or "")
+    return "".join(char for char in value if not unicodedata.combining(char)).casefold()
+
+
+def _relevance(query: str, *, artist: str = "", title: str = "", album: str = "") -> int:
+    """Return a conservative relevance score; zero means unrelated."""
+    needle = _fold(query)
+    tokens = [token for token in needle.split() if token]
+    artist_text, title_text, album_text = _fold(artist), _fold(title), _fold(album)
+    combined = f"{artist_text} {title_text} {album_text}"
+    if not needle or not tokens or not all(token in combined for token in tokens):
+        return 0
+    if needle in artist_text:
+        return 100
+    if all(token in artist_text for token in tokens):
+        return 90
+    if needle in title_text:
+        return 80
+    if needle in album_text:
+        return 70
+    return 60
+
+
+def _relevant_tracks(items: List[ExternalTrack], query: str) -> List[ExternalTrack]:
+    ranked = [(item, _relevance(query, artist=item.artist, title=item.title, album=item.album or "")) for item in items]
+    return [item for item, score in sorted(ranked, key=lambda entry: (-entry[1], not entry[0].available, entry[0].title.casefold())) if score]
+
+
+def _relevant_albums(items: List[ExternalAlbum], query: str) -> List[ExternalAlbum]:
+    return [item for item in items if _relevance(query, artist=item.artist, title=item.title)]
+
+
+def _relevant_artists(items: List[ExternalArtist], query: str) -> List[ExternalArtist]:
+    return [item for item in items if _relevance(query, artist=item.name)]
+
+
 async def search_local(db: DbSession, query: str) -> Dict[str, Any]:
     """Fast path: search only the already playable Navidrome library."""
     q = _normalise_query(query)
@@ -56,10 +94,11 @@ async def search_local(db: DbSession, query: str) -> Dict[str, Any]:
         result = await client.search(q, settings.search_result_limit)
     finally:
         await client.aclose()
+    tracks = _relevant_tracks(result.tracks, q)
     return {
-        "tracks": [track_out(library_service.upsert_external_track(db, item)) for item in result.tracks],
-        "albums": [_album_out(item) for item in result.albums],
-        "artists": [_artist_out(item) for item in result.artists],
+        "tracks": [track_out(library_service.upsert_external_track(db, item)) for item in tracks],
+        "albums": [_album_out(item) for item in _relevant_albums(result.albums, q)],
+        "artists": [_artist_out(item) for item in _relevant_artists(result.artists, q)],
     }
 
 
@@ -70,7 +109,7 @@ async def search_external(db: DbSession, query: str) -> Dict[str, Any]:
         return {"tracks": [], "albums": [], "artists": []}
     client = get_droppedneedle_client()
     try:
-        tracks = await client.search(q, settings.search_result_limit)
+        tracks = _relevant_tracks(await client.search(q, settings.search_result_limit), q)
     finally:
         await client.aclose()
 
@@ -118,6 +157,11 @@ async def search(db: DbSession, query: str) -> Dict[str, Any]:
     finally:
         await navidrome.aclose()
         await droppedneedle.aclose()
+
+    nav.tracks = _relevant_tracks(nav.tracks, q)
+    nav.albums = _relevant_albums(nav.albums, q)
+    nav.artists = _relevant_artists(nav.artists, q)
+    dn_tracks = _relevant_tracks(dn_tracks, q)
 
     # Merge tracks: owned library first, then acquirable ones not already owned.
     # Prefer Navidrome for matching songs: it is the only playback provider.
