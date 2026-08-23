@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils"
 type Tab = "all" | "tracks" | "albums" | "artists"
 
 const SUGGESTIONS = ["Daft Punk", "Dua Lipa", "The Weeknd", "M83", "MGMT", "Nova Hale"]
+const EMPTY_RESULTS: SearchResults = { tracks: [], albums: [], artists: [] }
 
 export default function SearchPage() {
   const [query, setQuery] = React.useState("")
@@ -39,19 +40,52 @@ export default function SearchPage() {
     setArtistFilter("")
   }, [debounced])
 
-  const { data, isLoading } = useSWR<SearchResults>(
-    debounced ? `search:${debounced}` : null,
-    () => api.search(debounced),
+  // Local library and external catalogue intentionally run independently.
+  // A slow MusicBrainz/DroppedNeedle result must never hide playable music.
+  const { data: local, isLoading: loadingLocal } = useSWR<SearchResults>(
+    debounced ? `search:local:${debounced}` : null,
+    () => api.searchLocal(debounced),
   )
+  const { data: external, isLoading: loadingExternal } = useSWR<SearchResults>(
+    debounced ? `search:external:${debounced}` : null,
+    () => api.searchExternal(debounced),
+  )
+  const data = React.useMemo<SearchResults>(() => {
+    const localData = local ?? EMPTY_RESULTS
+    const externalData = external ?? EMPTY_RESULTS
+    const trackKeys = new Set<string>()
+    const tracks = [...localData.tracks, ...externalData.tracks].filter((track) => {
+      const key = `${track.title.toLocaleLowerCase()}\u0000${track.artist.toLocaleLowerCase()}`
+      if (trackKeys.has(key)) return false
+      trackKeys.add(key)
+      return true
+    })
+    const albumKeys = new Set<string>()
+    const albums = [...localData.albums, ...externalData.albums].filter((album) => {
+      const key = `${album.title.toLocaleLowerCase()}\u0000${album.artist.toLocaleLowerCase()}`
+      if (albumKeys.has(key)) return false
+      albumKeys.add(key)
+      return true
+    })
+    const artistKeys = new Set<string>()
+    const artists = [...localData.artists, ...externalData.artists].filter((artist) => {
+      const key = artist.name.toLocaleLowerCase()
+      if (artistKeys.has(key)) return false
+      artistKeys.add(key)
+      return true
+    })
+    return { tracks, albums, artists }
+  }, [local, external])
+  const initialLoading = loadingLocal && !local
+  const catalogLoading = loadingExternal
 
-  const hasResults =
-    data && (data.tracks.length > 0 || data.albums.length > 0 || data.artists.length > 0)
+  const hasResults = data.tracks.length > 0 || data.albums.length > 0 || data.artists.length > 0
 
   const showTracks = tab === "all" || tab === "tracks"
   const showAlbums = tab === "all" || tab === "albums"
   const showArtists = tab === "all" || tab === "artists"
-  const trackArtists = React.useMemo(() => Array.from(new Set((data?.tracks ?? []).map((track) => track.artist))).sort((a, b) => a.localeCompare(b)), [data?.tracks])
-  const filteredTracks = React.useMemo(() => (data?.tracks ?? []).filter((track) => !artistFilter || track.artist === artistFilter), [data?.tracks, artistFilter])
+  const trackArtists = React.useMemo(() => Array.from(new Set(data.tracks.map((track) => track.artist))).sort((a, b) => a.localeCompare(b)), [data.tracks])
+  const filteredTracks = React.useMemo(() => data.tracks.filter((track) => !artistFilter || track.artist === artistFilter), [data.tracks, artistFilter])
 
   return (
     <div>
@@ -108,8 +142,10 @@ export default function SearchPage() {
             ))}
           </div>
         </Section>
-      ) : isLoading ? (
+      ) : initialLoading ? (
         <TrackListSkeleton count={6} />
+      ) : !hasResults && catalogLoading ? (
+        <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-5 text-sm text-muted-foreground"><span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />Buscando en el catálogo de canciones no disponibles…</div>
       ) : !hasResults ? (
         <EmptyState
           icon={SearchIcon}
@@ -118,6 +154,7 @@ export default function SearchPage() {
         />
       ) : (
         <div className="space-y-8">
+          {catalogLoading && <div className="flex items-center gap-2 text-xs text-muted-foreground"><span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" />Completando resultados desde el catálogo…</div>}
           {showArtists && (data?.artists.length ?? 0) > 0 && (
             <Section title="Artistas" action={data!.artists.length > 1 ? <button onClick={() => setShowAllArtists((value) => !value)} className="shrink-0 text-sm font-medium text-primary hover:underline">{showAllArtists ? "Mostrar menos" : "Mostrar más"}</button> : undefined}>
               <div className={cn("gap-4", showAllArtists ? "grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6" : "flex overflow-hidden")}>

@@ -104,6 +104,8 @@ export interface MusicApi {
 
   // search + tracks
   search(query: string): Promise<SearchResults>
+  searchLocal(query: string): Promise<SearchResults>
+  searchExternal(query: string): Promise<SearchResults>
   getTrack(id: string): Promise<Track>
   getStreamUrl(id: string): string
 

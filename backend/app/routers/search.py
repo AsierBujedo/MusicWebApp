@@ -20,3 +20,21 @@ async def search(
     db: DbSession = Depends(get_db),
 ):
     return await search_service.search(db, q)
+
+
+@router.get("/search/local", response_model=SearchResults)
+async def search_local(
+    q: str = Query(default="", max_length=200),
+    _user: User = Depends(get_current_user),
+    db: DbSession = Depends(get_db),
+):
+    return await search_service.search_local(db, q)
+
+
+@router.get("/search/external", response_model=SearchResults)
+async def search_external(
+    q: str = Query(default="", max_length=200),
+    _user: User = Depends(get_current_user),
+    db: DbSession = Depends(get_db),
+):
+    return await search_service.search_external(db, q)

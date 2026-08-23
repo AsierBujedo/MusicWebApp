@@ -41,6 +41,67 @@ def _artist_out(a: ExternalArtist) -> Dict[str, Any]:
     }
 
 
+def _normalise_query(query: str) -> str:
+    q = query.strip()[: settings.search_max_query_length]
+    return q if len(q) >= settings.search_min_query_length else ""
+
+
+async def search_local(db: DbSession, query: str) -> Dict[str, Any]:
+    """Fast path: search only the already playable Navidrome library."""
+    q = _normalise_query(query)
+    if not q:
+        return {"tracks": [], "albums": [], "artists": []}
+    client = get_navidrome_client()
+    try:
+        result = await client.search(q, settings.search_result_limit)
+    finally:
+        await client.aclose()
+    return {
+        "tracks": [track_out(library_service.upsert_external_track(db, item)) for item in result.tracks],
+        "albums": [_album_out(item) for item in result.albums],
+        "artists": [_artist_out(item) for item in result.artists],
+    }
+
+
+async def search_external(db: DbSession, query: str) -> Dict[str, Any]:
+    """Slow path: search the acquirable catalogue without waiting on local IO."""
+    q = _normalise_query(query)
+    if not q:
+        return {"tracks": [], "albums": [], "artists": []}
+    client = get_droppedneedle_client()
+    try:
+        tracks = await client.search(q, settings.search_result_limit)
+    finally:
+        await client.aclose()
+
+    tracks_out = [track_out(library_service.upsert_external_track(db, item)) for item in tracks]
+    artists: list[ExternalArtist] = []
+    albums: list[ExternalAlbum] = []
+    artist_index: dict[str, ExternalArtist] = {}
+    album_keys: dict[str, set[str]] = {}
+    seen_albums: set[tuple[str, str]] = set()
+    for item in tracks:
+        artist_key = item.artist.casefold()
+        if item.artist and artist_key not in artist_index:
+            artist = ExternalArtist(
+                provider=item.provider,
+                provider_id=item.artist_id or item.artist,
+                name=item.artist,
+                image=item.cover or (f"/api/covers/release-group/{item.album_id}" if item.album_id else None),
+            )
+            artists.append(artist)
+            artist_index[artist_key] = artist
+        if item.album:
+            key = (item.album.casefold(), artist_key)
+            if key not in seen_albums:
+                albums.append(ExternalAlbum(provider=item.provider, provider_id=item.album_id or item.album, title=item.album, artist=item.artist, artist_id=item.artist_id, cover=item.cover, year=item.year, available=item.available))
+                seen_albums.add(key)
+            album_keys.setdefault(artist_key, set()).add(str(item.album_id or item.album.casefold()))
+    for key, artist in artist_index.items():
+        artist.album_count = len(album_keys.get(key, set()))
+    return {"tracks": tracks_out, "albums": [_album_out(item) for item in albums], "artists": [_artist_out(item) for item in artists]}
+
+
 async def search(db: DbSession, query: str) -> Dict[str, Any]:
     q = query.strip()
     limit = settings.search_result_limit

@@ -146,6 +146,16 @@ class MockApi implements MusicApi {
     }
   }
 
+  async searchLocal(query: string): Promise<SearchResults> {
+    const result = await this.search(query)
+    return { ...result, tracks: result.tracks.filter((track) => track.status === "AVAILABLE") }
+  }
+
+  async searchExternal(query: string): Promise<SearchResults> {
+    const result = await this.search(query)
+    return { ...result, tracks: result.tracks.filter((track) => track.status !== "AVAILABLE") }
+  }
+
   async getTrack(id: string): Promise<Track> {
     await delay(150)
     const track = this.tracks.get(id)

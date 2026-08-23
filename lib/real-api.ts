@@ -79,6 +79,12 @@ class RealApi implements MusicApi {
   search(query: string) {
     return request<SearchResults>(`/api/search?q=${encodeURIComponent(query)}`)
   }
+  searchLocal(query: string) {
+    return request<SearchResults>(`/api/search/local?q=${encodeURIComponent(query)}`)
+  }
+  searchExternal(query: string) {
+    return request<SearchResults>(`/api/search/external?q=${encodeURIComponent(query)}`)
+  }
   getTrack(id: string) {
     return request<Track>(`/api/tracks/${id}`)
   }
