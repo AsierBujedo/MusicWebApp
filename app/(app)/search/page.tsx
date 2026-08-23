@@ -84,10 +84,11 @@ export default function SearchPage() {
   const showTracks = tab === "all" || tab === "tracks"
   const showAlbums = tab === "all" || tab === "albums"
   const showArtists = tab === "all" || tab === "artists"
-  const resultArtists = React.useMemo(() => Array.from(new Set([...data.tracks.map((track) => track.artist), ...data.albums.map((album) => album.artist)])).sort((a, b) => a.localeCompare(b)), [data.tracks, data.albums])
-  const filteredTracks = React.useMemo(() => data.tracks.filter((track) => !artistFilter || track.artist === artistFilter), [data.tracks, artistFilter])
-  const filteredAlbums = React.useMemo(() => data.albums.filter((album) => !artistFilter || album.artist === artistFilter), [data.albums, artistFilter])
-  const filteredArtistCards = React.useMemo(() => data.artists.filter((artist) => !artistFilter || artist.name === artistFilter), [data.artists, artistFilter])
+  const normalizedArtistFilter = artistFilter.trim().toLocaleLowerCase()
+  const matchesArtist = React.useCallback((artist: string) => !normalizedArtistFilter || artist.toLocaleLowerCase().includes(normalizedArtistFilter), [normalizedArtistFilter])
+  const filteredTracks = React.useMemo(() => data.tracks.filter((track) => matchesArtist(track.artist)), [data.tracks, matchesArtist])
+  const filteredAlbums = React.useMemo(() => data.albums.filter((album) => matchesArtist(album.artist)), [data.albums, matchesArtist])
+  const filteredArtistCards = React.useMemo(() => data.artists.filter((artist) => matchesArtist(artist.name)), [data.artists, matchesArtist])
 
   return (
     <div>
@@ -130,11 +131,25 @@ export default function SearchPage() {
         </div>
       )}
 
-      {debounced && resultArtists.length > 1 && (
-        <div className="mb-6 flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-          <span className="shrink-0 py-1.5 text-xs font-medium text-muted-foreground">Filtrar artista:</span>
-          <button onClick={() => setArtistFilter("")} className={cn("shrink-0 rounded-full px-3 py-1.5 text-xs font-medium", !artistFilter ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground")}>Todos</button>
-          {resultArtists.map((artist) => <button key={artist} onClick={() => setArtistFilter(artist)} className={cn("shrink-0 rounded-full px-3 py-1.5 text-xs font-medium", artistFilter === artist ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground")}>{artist}</button>)}
+      {debounced && hasResults && (
+        <div className="relative mb-6">
+          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={artistFilter}
+            onChange={(event) => setArtistFilter(event.target.value)}
+            placeholder="Filtrar por artista"
+            aria-label="Filtrar resultados por artista"
+            className="w-full rounded-xl border border-border bg-card py-2.5 pl-10 pr-10 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-ring/40"
+          />
+          {artistFilter && (
+            <button
+              onClick={() => setArtistFilter("")}
+              aria-label="Quitar filtro de artista"
+              className="absolute right-3 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
       )}
 
