@@ -6,6 +6,19 @@ import { api, MOCK_MODE } from "@/lib/api"
 
 type RepeatMode = "off" | "all" | "one"
 
+type SavedPlayerState = {
+  queue: Track[]
+  index: number
+  position: number
+  isPlaying: boolean
+  volume: number
+  muted: boolean
+  repeat: RepeatMode
+  shuffle: boolean
+}
+
+const PLAYER_SESSION_KEY = "resonar.player.session.v1"
+
 interface PlayerContextValue {
   currentTrack: Track | null
   queue: Track[]
@@ -48,6 +61,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const syncSourceId = React.useRef(crypto.randomUUID())
   const applyingRemoteSync = React.useRef(false)
   const audioRef = React.useRef<HTMLAudioElement | null>(null)
+  const pendingRestorePositionRef = React.useRef<number | null>(null)
+  const restoredRef = React.useRef(false)
   const mediaControlsRef = React.useRef({
     next: () => {},
     prev: () => {},
@@ -55,6 +70,61 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   const currentTrack = queue[index] ?? null
   const duration = mediaDuration || currentTrack?.duration || 0
+
+  // A browser reload always tears down the document and its audio element, so
+  // no web app can keep the same decoder alive through it. Keep the session in
+  // sessionStorage instead: the replacement audio element resumes the same
+  // queue and timestamp as soon as it has buffered the stream again.
+  React.useEffect(() => {
+    if (restoredRef.current) return
+    restoredRef.current = true
+    try {
+      const raw = window.sessionStorage.getItem(PLAYER_SESSION_KEY)
+      if (!raw) return
+      const saved = JSON.parse(raw) as Partial<SavedPlayerState>
+      if (!Array.isArray(saved.queue) || saved.queue.length === 0) return
+      const savedIndex = typeof saved.index === "number" ? saved.index : 0
+      const safeIndex = Math.max(0, Math.min(savedIndex, saved.queue.length - 1))
+      const savedPosition = typeof saved.position === "number" && Number.isFinite(saved.position) ? Math.max(0, saved.position) : 0
+
+      setQueue(saved.queue)
+      setIndex(safeIndex)
+      setPosition(savedPosition)
+      setIsPlaying(Boolean(saved.isPlaying))
+      if (typeof saved.volume === "number") setVolumeState(Math.max(0, Math.min(saved.volume, 1)))
+      setMuted(Boolean(saved.muted))
+      if (saved.repeat === "all" || saved.repeat === "one" || saved.repeat === "off") setRepeat(saved.repeat)
+      setShuffle(Boolean(saved.shuffle))
+      pendingRestorePositionRef.current = savedPosition
+    } catch {
+      window.sessionStorage.removeItem(PLAYER_SESSION_KEY)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    const save = () => {
+      const actualPosition = audioRef.current?.currentTime
+      const saved: SavedPlayerState = {
+        queue,
+        index,
+        position: typeof actualPosition === "number" && Number.isFinite(actualPosition) ? actualPosition : position,
+        isPlaying,
+        volume,
+        muted,
+        repeat,
+        shuffle,
+      }
+      try {
+        window.sessionStorage.setItem(PLAYER_SESSION_KEY, JSON.stringify(saved))
+      } catch {
+        // Storage can be unavailable in private browsing; playback continues.
+      }
+    }
+
+    save()
+    window.addEventListener("pagehide", save)
+    return () => window.removeEventListener("pagehide", save)
+  }, [queue, index, position, isPlaying, volume, muted, repeat, shuffle])
 
   const start = React.useCallback(
     (list: Track[], startIndex: number) => {
@@ -251,7 +321,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     audio.src = api.getStreamUrl(currentTrack.id)
     audio.load()
     audio.volume = muted ? 0 : volume
-    if (isPlaying) audio.play().catch(() => setIsPlaying(false))
+    // Wait for metadata before playing a restored stream. Starting first and
+    // seeking afterwards causes an audible jump from 0:00 on slower networks.
+    if (isPlaying && pendingRestorePositionRef.current === null) audio.play().catch(() => setIsPlaying(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentTrack?.id])
 
@@ -385,8 +457,28 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           onLoadedMetadata={(event) => {
             const actualDuration = event.currentTarget.duration
             if (Number.isFinite(actualDuration) && actualDuration > 0) setMediaDuration(actualDuration)
+            const restorePosition = pendingRestorePositionRef.current
+            if (restorePosition !== null) {
+              try {
+                event.currentTarget.currentTime = restorePosition
+              } catch {
+                // Some streams only become seekable at canplay; keep it pending.
+                return
+              }
+              pendingRestorePositionRef.current = null
+              if (isPlaying) event.currentTarget.play().catch(() => setIsPlaying(false))
+            }
           }}
           onCanPlay={(event) => {
+            const restorePosition = pendingRestorePositionRef.current
+            if (restorePosition !== null) {
+              try {
+                event.currentTarget.currentTime = restorePosition
+                pendingRestorePositionRef.current = null
+              } catch {
+                // Keep the pending value for a later canplay event.
+              }
+            }
             if (isPlaying) event.currentTarget.play().catch(() => setIsPlaying(false))
           }}
           onEnded={(event) => {
