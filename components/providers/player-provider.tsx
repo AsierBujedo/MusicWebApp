@@ -321,8 +321,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     audio.src = api.getStreamUrl(currentTrack.id)
     audio.load()
     audio.volume = muted ? 0 : volume
-    // Wait for metadata before playing a restored stream. Starting first and
-    // seeking afterwards causes an audible jump from 0:00 on slower networks.
+    // Wait until the stream is actually playable before starting a restored
+    // session. Starting first and seeking afterwards causes an audible jump
+    // from 0:00, and some browsers reject that early play() call altogether.
     if (isPlaying && pendingRestorePositionRef.current === null) audio.play().catch(() => setIsPlaying(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentTrack?.id])
@@ -466,7 +467,6 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                 return
               }
               pendingRestorePositionRef.current = null
-              if (isPlaying) event.currentTarget.play().catch(() => setIsPlaying(false))
             }
           }}
           onCanPlay={(event) => {
