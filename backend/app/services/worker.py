@@ -42,16 +42,20 @@ async def _advance_once() -> None:
                 )
             ).order_by(MusicRequest.created_at.asc())
         ).all())
-        # Exactly one request can own DroppedNeedle/Soulseek at a time.  Keep
-        # polling that request until it resolves; only then claim the oldest
-        # approved item.  This is intentionally independent of the old env
-        # setting so a stale deployment cannot accidentally run in parallel.
-        in_flight = next((req for req in active if req.status in {"SEARCHING", "DOWNLOADING"}), None)
+        # Keep source discovery serial: slskd only receives one active search
+        # at a time. Once DroppedNeedle has moved an item to DOWNLOADING, that
+        # search slot is free and the next FIFO item may look for its source
+        # while the earlier file continues transferring in the background.
+        searching = next((req for req in active if req.status == "SEARCHING"), None)
+        downloading = next((req for req in active if req.status == "DOWNLOADING"), None)
         # The SQL query above already restricts FAILED rows to due retries.
         # SQLite may deserialize its timestamp as naive while ``utcnow()`` is
         # aware, so do not repeat that comparison in Python.
         due_retry = next((req for req in active if req.status == "FAILED"), None)
-        next_request = in_flight or due_retry or next((req for req in active if req.status == "APPROVED"), None)
+        approved = next((req for req in active if req.status == "APPROVED"), None)
+        # A search is always polled to completion before opening another one.
+        # Downloads are provider-managed and may overlap with that one search.
+        next_request = searching or due_retry or approved or downloading
         if next_request is None:
             return
         try:

@@ -86,8 +86,8 @@ class Settings(BaseSettings):
 
     # ---- Background worker ----
     request_poll_interval_seconds: int = Field(default=10, alias="REQUEST_POLL_INTERVAL_SECONDS")
-    # The acquisition pipeline is deliberately serial: one Soulseek/DroppedNeedle
-    # job at a time, in arrival order, to avoid provider contention.
+    # Source discovery is serialized by the worker. Transfers can continue in
+    # the background while the next request is looking for its own source.
     max_concurrent_download_requests: int = Field(default=1, alias="MAX_CONCURRENT_DOWNLOAD_REQUESTS")
 
     # Shared with Navidrome. Manual imports are written here so they remain in
