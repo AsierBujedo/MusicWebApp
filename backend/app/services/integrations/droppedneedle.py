@@ -286,8 +286,21 @@ class RealDroppedNeedleClient:
                 )
             response.raise_for_status()
             recording = response.json()
-        except (httpx.HTTPError, ValueError):
-            logger.info("Could not resolve MusicBrainz edition for recording %s", recording_mbid)
+        except httpx.HTTPStatusError as exc:
+            logger.warning(
+                "Could not resolve MusicBrainz edition for recording %s: HTTP %s",
+                recording_mbid,
+                exc.response.status_code,
+            )
+            return {}
+        except httpx.TimeoutException:
+            logger.warning("Could not resolve MusicBrainz edition for recording %s: request timed out", recording_mbid)
+            return {}
+        except httpx.NetworkError as exc:
+            logger.warning("Could not resolve MusicBrainz edition for recording %s: network error (%s)", recording_mbid, type(exc).__name__)
+            return {}
+        except (httpx.HTTPError, ValueError) as exc:
+            logger.warning("Could not resolve MusicBrainz edition for recording %s: %s", recording_mbid, type(exc).__name__)
             return {}
 
         if not isinstance(recording, dict):
