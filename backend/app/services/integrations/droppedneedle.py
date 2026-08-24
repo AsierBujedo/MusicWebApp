@@ -335,13 +335,17 @@ class RealDroppedNeedleClient:
                 # the artist and title in the JSON body.  Supplying the exact
                 # edition removes the ambiguity for recordings present in
                 # several releases (deluxe editions, compilations, etc.).
-                if not release_mbid:
-                    resolved = await self._recording_target(provider_id, album)
-                    album = album or resolved.get("album")
-                    duration = duration or resolved.get("duration")
-                    artist_mbid = artist_mbid or resolved.get("artist_mbid")
-                    release_group_mbid = release_group_mbid or resolved.get("release_group_mbid")
-                    release_mbid = resolved.get("release_mbid")
+                # Search rows can live in Resonar's cache for days, while a
+                # recording has many possible MusicBrainz editions. Always
+                # resolve a current exact release instead of trusting a stale
+                # cached release ID: DroppedNeedle validates this relationship
+                # strictly before it starts a download.
+                resolved = await self._recording_target(provider_id, album)
+                album = album or resolved.get("album")
+                duration = duration or resolved.get("duration")
+                artist_mbid = artist_mbid or resolved.get("artist_mbid")
+                release_group_mbid = resolved.get("release_group_mbid") or release_group_mbid
+                release_mbid = resolved.get("release_mbid") or release_mbid
                 body: dict[str, Any] = {"artist_name": artist, "track_title": title}
                 optional_fields = {
                     "album_title": album,
@@ -403,7 +407,15 @@ class RealDroppedNeedleClient:
             response = exc.response
             detail = response.text[:500].replace("\n", " ")
             logger.warning("DroppedNeedle request rejected: status=%s body=%s", response.status_code, detail)
-            return {"accepted": False, "external_id": None, "reason": f"DroppedNeedle respondió HTTP {response.status_code}"}
+            try:
+                payload = response.json()
+                api_message = payload.get("error", {}).get("message") if isinstance(payload, dict) else None
+            except ValueError:
+                api_message = None
+            reason = f"DroppedNeedle respondió HTTP {response.status_code}"
+            if isinstance(api_message, str) and api_message.strip():
+                reason = f"{reason}: {api_message.strip()}"
+            return {"accepted": False, "external_id": None, "reason": reason}
         except Exception:
             logger.warning("DroppedNeedle request submission failed", exc_info=True)
             return {"accepted": False, "external_id": None, "reason": "No se pudo contactar con DroppedNeedle"}

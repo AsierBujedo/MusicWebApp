@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 from datetime import timedelta
 from typing import Optional
 
@@ -275,18 +276,25 @@ async def _fail(db, req: MusicRequest, message: str) -> None:
         )
         return
 
+    # A 4xx validation response is final for this exact request: re-sending it
+    # twice cannot make an ambiguous MusicBrainz edition valid. Only transport
+    # problems and temporary provider failures deserve automatic retries.
     recoverable_droppedneedle = (
-        "droppedneedle no acept" in message.casefold()
-        or "droppedneedle respondi" in message.casefold()
-        or "droppedneedle está tardando" in message.casefold()
+        "droppedneedle está tardando" in message.casefold()
         or "no se pudo contactar con droppedneedle" in message.casefold()
+        or re.search(r"droppedneedle respondió http (?:408|429|5\\d\\d)\\b", message, re.IGNORECASE) is not None
     )
     if recoverable_droppedneedle:
         req.soulseek_retry_count += 1
         if req.soulseek_retry_count <= 2:
             # Two quick submission retries absorb temporary timeouts and API
             # races. The serial worker retries this item before moving on.
-            detail = "DroppedNeedle está tardando en responder" if "tardando" in message.casefold() else "DroppedNeedle no aceptó la solicitud"
+            if "tardando" in message.casefold():
+                detail = "DroppedNeedle está tardando en responder"
+            elif "contactar" in message.casefold():
+                detail = "No se pudo contactar con DroppedNeedle"
+            else:
+                detail = "DroppedNeedle devolvió un error temporal"
             req = request_service.transition(db, req, "FAILED", error_message=f"{detail}. Reintentando ({req.soulseek_retry_count}/2)…")
             req.external_id = None
             req = request_service.transition(db, req, "APPROVED", error_message=None)
@@ -294,7 +302,13 @@ async def _fail(db, req: MusicRequest, message: str) -> None:
             return
         retry_at = utcnow() + _SOULSEEK_RETRY_DELAY
         req.soulseek_retry_at = retry_at
-        req = request_service.transition(db, req, "FAILED", error_message="DroppedNeedle no aceptó la solicitud tras dos reintentos. Se reintentará automáticamente en una hora.")
+        if "tardando" in message.casefold():
+            detail = "DroppedNeedle no respondió a tiempo"
+        elif "contactar" in message.casefold():
+            detail = "No se pudo contactar con DroppedNeedle"
+        else:
+            detail = "DroppedNeedle sigue devolviendo un error temporal"
+        req = request_service.transition(db, req, "FAILED", error_message=f"{detail} tras dos reintentos. Se reintentará automáticamente en una hora.")
         await event_service.emit_request_updated(request_id=req.id, status=req.status, progress=req.progress, owner_user_id=req.requested_by)
         return
 
