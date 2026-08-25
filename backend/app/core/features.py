@@ -14,6 +14,7 @@ ADMIN_FEATURES = {
 # /api/admin routes.
 USER_FEATURES = {
     "replay.access": "Replay",
+    "bingo.access": "Bingo musical",
 }
 
 ALL_FEATURES = {**ADMIN_FEATURES, **USER_FEATURES}

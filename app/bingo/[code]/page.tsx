@@ -1,0 +1,19 @@
+"use client"
+
+import * as React from "react"
+import { Check, Music2, Trophy } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+
+const tokenKey = (code: string) => `resonar.bingo.${code}`
+const call = async (path: string, init?: RequestInit) => { const res = await fetch(path, { headers: { "Content-Type": "application/json" }, ...init }); if (!res.ok) throw new Error(); return res.json() }
+
+export default function PublicBingoPage({ params }: { params: Promise<{ code: string }> }) {
+  const { code } = React.use(params); const [game, setGame] = React.useState<any>(); const [name, setName] = React.useState(""); const [error, setError] = React.useState("")
+  const load = React.useCallback(async () => { try { setGame(await call(`/api/bingo/public/${code}?token=${encodeURIComponent(localStorage.getItem(tokenKey(code)) ?? "")}`)) } catch { setError("No encontramos esta partida") } }, [code])
+  React.useEffect(() => { void load(); const id = setInterval(() => void load(), 2500); return () => clearInterval(id) }, [load])
+  const join = async () => { try { const next = await call(`/api/bingo/public/${code}/join`, { method: "POST", body: JSON.stringify({ name }) }); localStorage.setItem(tokenKey(code), next.player.token); setGame(next) } catch { setError("No puedes unirte a esta partida ahora") } }
+  const action = async (path: string, body: object) => { try { setGame(await call(path, { method: "POST", body: JSON.stringify({ token: game.player.token, ...body }) })) } catch { setError("Esa acción no es válida todavía") } }
+  if (!game) return <main className="flex min-h-dvh items-center justify-center bg-[#0b0c12] p-6 text-white">{error || "Entrando a la sala…"}</main>
+  return <main className="min-h-dvh bg-[#0b0c12] p-5 text-white"><div className="mx-auto max-w-lg"><header className="mb-6 text-center"><div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-[0_0_40px_rgba(255,108,83,.5)]"><Music2 /></div><h1 className="text-2xl font-bold">{game.title}</h1><p className="mt-1 text-sm text-white/60">{game.status === "LOBBY" ? "Esperando al anfitrión" : game.currentTrack ? `${game.currentTrack.title} · ${game.currentTrack.artist}` : "La partida ha terminado"}</p></header>{!game.player ? <section className="rounded-3xl border border-white/10 bg-white/5 p-5"><h2 className="font-semibold">Únete al bingo</h2><p className="mt-1 text-sm text-white/60">Elige un nombre: te asignaremos un cartón único.</p><div className="mt-4 flex gap-2"><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Tu nombre" /><Button disabled={!name.trim()} onClick={() => void join()}>Jugar</Button></div></section> : <><div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${game.gridSize}, minmax(0, 1fr))` }}>{game.player.card.map((id: string, index: number) => { const marked = game.player.marked.includes(id); const track = game.player.cardTracks[index]; return <button key={id} disabled={marked || game.status !== "RUNNING"} onClick={() => void action(`/api/bingo/public/${code}/mark`, { trackId: id })} className={`aspect-square overflow-hidden rounded-xl border p-1 text-[9px] leading-tight transition ${marked ? "border-primary bg-primary text-black" : "border-white/15 bg-white/5"}`}>{marked ? <Check className="mx-auto h-6 w-6" /> : <span className="line-clamp-3">{track?.title}</span>}</button> })}</div><div className="mt-5 grid grid-cols-2 gap-3"><Button variant="secondary" onClick={() => void action(`/api/bingo/public/${code}/claim`, { kind: "LINE" })}>Reclamar línea</Button><Button onClick={() => void action(`/api/bingo/public/${code}/claim`, { kind: "BINGO" })}><Trophy className="h-4 w-4" />¡Bingo!</Button></div></>}{error && <p className="mt-4 text-center text-sm text-primary">{error}</p>}</div></main>
+}

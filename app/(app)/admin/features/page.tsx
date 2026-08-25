@@ -66,12 +66,12 @@ function RolloutCard({
           disabled={saving}
           onClick={toggleGlobal}
           className={cn(
-            "inline-flex items-center gap-3 self-start rounded-full border px-3 py-2 text-sm font-medium transition-colors disabled:opacity-60",
+            "inline-flex w-full max-w-full items-center justify-between gap-3 self-start rounded-full border px-3 py-2 text-sm font-medium transition-colors disabled:opacity-60 sm:w-auto",
             mode === "global" ? "border-primary/40 bg-primary/10 text-primary" : "border-border bg-secondary text-muted-foreground",
           )}
         >
-          <span>Activación global</span>
-          <span className={cn("relative h-6 w-11 rounded-full transition-colors", mode === "global" ? "bg-primary" : "bg-muted-foreground/35")}>
+          <span className="min-w-0 truncate">Activación global</span>
+          <span className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", mode === "global" ? "bg-primary" : "bg-muted-foreground/35")}>
             <span className={cn("absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-transform", mode === "global" ? "translate-x-6" : "translate-x-1")} />
           </span>
         </button>

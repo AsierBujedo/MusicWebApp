@@ -1,6 +1,7 @@
 """ORM models. Importing this package registers every table on ``Base.metadata``
 which Alembic autogeneration and ``create_all`` rely on."""
 from app.models.favorite import Favorite
+from app.models.bingo import BingoClaim, BingoGame, BingoPlayer
 from app.models.feature_rollout import FeatureRollout
 from app.models.history import History
 from app.models.music_request import MusicRequest
@@ -13,6 +14,9 @@ from app.models.user import User, UserFeatureFlag
 
 __all__ = [
     "Favorite",
+    "BingoClaim",
+    "BingoGame",
+    "BingoPlayer",
     "FeatureRollout",
     "History",
     "MusicRequest",

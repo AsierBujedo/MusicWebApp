@@ -1,4 +1,4 @@
-import { Home, Search, Inbox, Heart, ListMusic, Clock, LayoutDashboard, Users, Radio, User, Library, Clapperboard, SlidersHorizontal } from "lucide-react"
+import { Home, Search, Inbox, Heart, ListMusic, Clock, LayoutDashboard, Users, Radio, User, Library, Clapperboard, SlidersHorizontal, Trophy } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
 export interface NavItem {
@@ -17,6 +17,7 @@ export const MAIN_NAV: NavItem[] = [
   { href: "/playlists", label: "Playlists", icon: ListMusic },
   { href: "/history", label: "Historial", icon: Clock },
   { href: "/replay", label: "Replay", icon: Clapperboard, feature: "replay.access" },
+  { href: "/bingo", label: "Bingo", icon: Trophy, feature: "bingo.access" },
 ]
 
 // Bottom navigation on mobile (kept to five items for reachability).
