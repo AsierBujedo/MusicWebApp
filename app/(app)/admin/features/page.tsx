@@ -72,7 +72,7 @@ function RolloutCard({
         >
           <span className="min-w-0 truncate">Activación global</span>
           <span className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", mode === "global" ? "bg-primary" : "bg-muted-foreground/35")}>
-            <span className={cn("absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-transform", mode === "global" ? "translate-x-6" : "translate-x-1")} />
+            <span className={cn("absolute left-1 top-1 h-4 w-4 rounded-full bg-white shadow transition-transform", mode === "global" ? "translate-x-5" : "translate-x-0")} />
           </span>
         </button>
       </div>
