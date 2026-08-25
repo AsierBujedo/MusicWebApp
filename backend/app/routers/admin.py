@@ -12,12 +12,12 @@ from app.config import settings
 from app.dependencies import get_current_admin, get_current_user, require_admin_feature, require_any_admin_feature
 from app.core.cookies import clear_demo_admin_cookie, set_demo_admin_cookie, set_session_cookie
 from app.core.features import effective_features, require_feature
-from app.core.features import ALL_FEATURES
+from app.core.features import ADMIN_FEATURES
 from app.models.music_request import MusicRequest
 from app.models.track import Track
 from app.models.user import User, UserFeatureFlag
 from app.schemas.user import CreateUserInput, UpdateUserInput, UpdateFeatureFlagsInput
-from app.services import event_service, request_service, system_settings_service, user_service
+from app.services import event_service, feature_rollout_service, request_service, system_settings_service, user_service
 from app.services.integrations import (
     get_droppedneedle_client,
     get_navidrome_client,
@@ -166,12 +166,44 @@ def update_feature_flags(user_id: str, payload: UpdateFeatureFlagsInput, admin: 
     if user.role == "ADMIN":
         raise HTTPException(status_code=400, detail="Los administradores ya tienen todas las funciones")
     requested = set(payload.feature_flags)
-    if not requested.issubset(ALL_FEATURES):
+    if not requested.issubset(ADMIN_FEATURES):
         raise HTTPException(status_code=400, detail="Feature flag no válida")
-    db.query(UserFeatureFlag).filter(UserFeatureFlag.user_id == user.id).delete()
+    db.query(UserFeatureFlag).filter(
+        UserFeatureFlag.user_id == user.id,
+        UserFeatureFlag.feature_key.in_(ADMIN_FEATURES),
+    ).delete()
     db.add_all([UserFeatureFlag(user_id=user.id, feature_key=key) for key in requested])
     db.commit(); db.refresh(user)
     return user_out(user)
+
+
+@router.get("/features")
+def list_feature_rollouts(_admin: User = Depends(get_current_admin), db: DbSession = Depends(get_db)):
+    users = [
+        {"username": user.username, "displayName": user.display_name, "avatar": user.avatar}
+        for user in user_service.list_users(db)
+        if user.role == "USER"
+    ]
+    return {"features": feature_rollout_service.list_rollouts(db), "users": users}
+
+
+@router.put("/features/{feature_key}")
+async def update_feature_rollout(
+    feature_key: str,
+    payload: dict,
+    _admin: User = Depends(get_current_admin),
+    db: DbSession = Depends(get_db),
+):
+    mode = payload.get("mode")
+    usernames = payload.get("usernames", [])
+    if not isinstance(mode, str) or not isinstance(usernames, list) or not all(isinstance(item, str) for item in usernames):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Datos de activación no válidos")
+    try:
+        result = feature_rollout_service.set_rollout(db, feature_key=feature_key, mode=mode, usernames=usernames)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+    await event_service.emit_system_updated("features.rollout", {"featureKey": feature_key})
+    return result
 
 
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

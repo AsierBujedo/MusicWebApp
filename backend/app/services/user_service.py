@@ -7,7 +7,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
 from app.core import security
-from app.models.user import User
+from app.models.user import User, UserFeatureFlag
+from app.services.feature_rollout_service import global_feature_keys
 
 
 class UserError(Exception):
@@ -50,6 +51,9 @@ def create_user(
         password_hash=security.hash_password(password),
     )
     db.add(user)
+    db.flush()
+    if user.role == "USER":
+        db.add_all([UserFeatureFlag(user_id=user.id, feature_key=key) for key in global_feature_keys(db)])
     db.commit()
     db.refresh(user)
     return user
@@ -76,6 +80,12 @@ def update_user(
         user.role = role
         if role == "ADMIN":
             user.auto_approve_requests = False
+        else:
+            existing = {flag.feature_key for flag in user.feature_flags}
+            db.add_all([
+                UserFeatureFlag(user_id=user.id, feature_key=key)
+                for key in global_feature_keys(db).difference(existing)
+            ])
     if auto_approve_requests is not None and user.role == "USER":
         user.auto_approve_requests = auto_approve_requests
     if active is not None:

@@ -109,7 +109,6 @@ export default function AdminUsersPage() {
     ["admin.library", "Biblioteca completa", "Consultar el catálogo completo de canciones."],
     ["admin.services", "Gestionar servicios", "Ver el estado y ejecutar mantenimiento de servicios."],
     ["admin.demo", "Modo demo", "Entrar temporalmente como una cuenta normal para soporte o pruebas."],
-    ["replay.access", "Replay", "Acceso al catálogo y reproductor de vídeo personal."],
   ] as const
 
   return (
@@ -246,7 +245,7 @@ export default function AdminUsersPage() {
           </div>
         </div>
       </Modal>
-      <Modal open={Boolean(featureTarget)} onClose={() => setFeatureTarget(null)} title={`Funciones de ${featureTarget?.displayName ?? ""}`} description="Las funciones de usuario habituales están activas para todos. Estas son funciones delegadas de administración.">
+      <Modal open={Boolean(featureTarget)} onClose={() => setFeatureTarget(null)} title={`Funciones de ${featureTarget?.displayName ?? ""}`} description="Estas son únicamente funciones delegadas de administración. Las funciones de producto se gestionan desde el panel Funciones.">
         <div className="space-y-2">
           {featureOptions.map(([key, label, description]) => <label key={key} className="flex cursor-pointer gap-3 rounded-xl border border-border p-3 hover:bg-secondary/50"><input type="checkbox" checked={selectedFeatures.includes(key)} onChange={() => toggleFeature(key)} className="mt-0.5 h-4 w-4 accent-primary" /><span><span className="block text-sm font-medium">{label}</span><span className="block text-xs text-muted-foreground">{description}</span></span></label>)}
           <div className="flex gap-3 pt-2"><Button variant="secondary" className="flex-1" onClick={() => setFeatureTarget(null)}>Cancelar</Button><Button className="flex-1" onClick={() => void saveFeatures()}>Guardar</Button></div>

@@ -46,6 +46,26 @@ export interface DownloadAvailability {
   message?: string | null
 }
 
+export type ProductFeatureMode = "off" | "friends" | "global"
+
+export interface ProductFeatureRollout {
+  key: string
+  label: string
+  mode: ProductFeatureMode
+  usernames: string[]
+}
+
+export interface ProductFeatureAudienceUser {
+  username: string
+  displayName: string
+  avatar?: string
+}
+
+export interface ProductFeatureRolloutsResponse {
+  features: ProductFeatureRollout[]
+  users: ProductFeatureAudienceUser[]
+}
+
 export interface Album {
   id: string
   title: string
@@ -179,3 +199,4 @@ export type RealtimeEvent =
       progress?: number
     }
   | { type: "system.updated"; topic: "downloads.availability"; enabled: boolean }
+  | { type: "system.updated"; topic: "features.rollout"; featureKey: string }

@@ -1,6 +1,8 @@
 import type {
   AdminStats,
   DownloadAvailability,
+  ProductFeatureRollout,
+  ProductFeatureRolloutsResponse,
   HistoryEntry,
   MusicRequest,
   Playlist,
@@ -50,6 +52,9 @@ class MockApi implements MusicApi {
   private listeners = new Set<(e: RealtimeEvent) => void>()
   private currentUserId: string | null = null
   private downloadsEnabled = true
+  private productFeatureRollouts: ProductFeatureRollout[] = [
+    { key: "replay.access", label: "Replay", mode: "off", usernames: [] },
+  ]
   // Per-user passwords. Any password logs in initially; once changed here,
   // the new password is enforced so "current password" checks feel real.
   private passwords = new Map<string, string>()
@@ -518,6 +523,31 @@ class MockApi implements MusicApi {
     if (!user) throw new ApiError("Usuario no encontrado", 404)
     user.featureFlags = featureFlags
     return { ...user }
+  }
+  async getProductFeatureRollouts(): Promise<ProductFeatureRolloutsResponse> {
+    return {
+      features: this.productFeatureRollouts.map((feature) => ({ ...feature, usernames: [...feature.usernames] })),
+      users: this.users
+        .filter((user) => user.role === "USER")
+        .map(({ username, displayName, avatar }) => ({ username, displayName, avatar })),
+    }
+  }
+  async setProductFeatureRollout(key: string, mode: ProductFeatureRollout["mode"], usernames: string[]): Promise<ProductFeatureRollout> {
+    const rollout = this.productFeatureRollouts.find((feature) => feature.key === key)
+    if (!rollout) throw new ApiError("Función no encontrada", 404)
+    const audience = mode === "global"
+      ? this.users.filter((user) => user.role === "USER").map((user) => user.username)
+      : mode === "friends" ? usernames : []
+    rollout.mode = mode
+    rollout.usernames = [...new Set(audience)]
+    this.users.forEach((user) => {
+      if (user.role !== "USER") return
+      const flags = new Set(user.featureFlags ?? [])
+      if (rollout.usernames.includes(user.username)) flags.add(key)
+      else flags.delete(key)
+      user.featureFlags = [...flags]
+    })
+    return { ...rollout, usernames: [...rollout.usernames] }
   }
 
   async getAllRequests(): Promise<MusicRequest[]> {

@@ -1,6 +1,8 @@
 import type {
   AdminStats,
   DownloadAvailability,
+  ProductFeatureRollout,
+  ProductFeatureRolloutsResponse,
   HistoryEntry,
   MusicRequest,
   Playlist,
@@ -260,6 +262,12 @@ class RealApi implements MusicApi {
   }
   updateUserFeatureFlags(id: string, featureFlags: string[]) {
     return request<User>(`/api/admin/users/${id}/features`, { method: "PUT", body: JSON.stringify({ featureFlags }) })
+  }
+  getProductFeatureRollouts() {
+    return request<ProductFeatureRolloutsResponse>("/api/admin/features")
+  }
+  setProductFeatureRollout(key: string, mode: ProductFeatureRollout["mode"], usernames: string[]) {
+    return request<ProductFeatureRollout>(`/api/admin/features/${encodeURIComponent(key)}`, { method: "PUT", body: JSON.stringify({ mode, usernames }) })
   }
   getAllRequests() {
     return request<MusicRequest[]>("/api/admin/requests")

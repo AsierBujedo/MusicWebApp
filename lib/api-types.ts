@@ -1,6 +1,8 @@
 import type {
   AdminStats,
   DownloadAvailability,
+  ProductFeatureRollout,
+  ProductFeatureRolloutsResponse,
   AlbumCatalog,
   ArtistCatalog,
   HistoryEntry,
@@ -167,6 +169,8 @@ export interface MusicApi {
   updateUser(id: string, patch: Partial<User>): Promise<User>
   deleteUser(id: string): Promise<void>
   updateUserFeatureFlags(id: string, featureFlags: string[]): Promise<User>
+  getProductFeatureRollouts(): Promise<ProductFeatureRolloutsResponse>
+  setProductFeatureRollout(key: string, mode: ProductFeatureRollout["mode"], usernames: string[]): Promise<ProductFeatureRollout>
   getAllRequests(): Promise<MusicRequest[]>
   setDownloadAvailability(enabled: boolean): Promise<DownloadAvailability>
   setRequestStatus(id: string, status: "APPROVED" | "REJECTED"): Promise<MusicRequest>

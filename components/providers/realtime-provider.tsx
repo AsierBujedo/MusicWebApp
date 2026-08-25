@@ -35,6 +35,9 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       if (event.type === "system.updated" && event.topic === "downloads.availability") {
         mutate("downloads:availability")
       }
+      if (event.type === "system.updated" && event.topic === "features.rollout") {
+        mutate("auth:me")
+      }
     })
     return unsubscribe
   }, [mutate, toast])
