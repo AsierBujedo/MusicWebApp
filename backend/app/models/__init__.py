@@ -6,6 +6,7 @@ from app.models.music_request import MusicRequest
 from app.models.playlist import Playlist, PlaylistCollaborator, PlaylistTrack
 from app.models.session import Session
 from app.models.spotify_connection import SpotifyConnection
+from app.models.system_setting import SystemSetting
 from app.models.track import Track
 from app.models.user import User, UserFeatureFlag
 
@@ -17,6 +18,7 @@ __all__ = [
     "PlaylistTrack",
     "Session",
     "SpotifyConnection",
+    "SystemSetting",
     "Track",
     "User",
 ]

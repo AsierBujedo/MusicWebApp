@@ -10,7 +10,7 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.request import CreateRequestInput, MusicRequestOut, YouTubeCandidateOut, YouTubeDownloadInput
-from app.services import event_service, library_service, manual_import_service, request_service, youtube_fallback_service
+from app.services import event_service, library_service, manual_import_service, request_service, system_settings_service, youtube_fallback_service
 from app.services.integrations import get_droppedneedle_client
 from app.models.base import utcnow
 from app.models.music_request import MusicRequest
@@ -27,12 +27,19 @@ def list_requests(user: User = Depends(get_current_user), db: DbSession = Depend
     return [request_out(r, requested_by_name=user.display_name) for r in reqs]
 
 
+@router.get("/availability")
+def download_availability(_user: User = Depends(get_current_user), db: DbSession = Depends(get_db)):
+    enabled = system_settings_service.downloads_enabled(db)
+    return {"enabled": enabled, "message": None if enabled else system_settings_service.DOWNLOADS_UNAVAILABLE_MESSAGE}
+
+
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=MusicRequestOut)
 async def create_request(
     payload: CreateRequestInput,
     user: User = Depends(get_current_user),
     db: DbSession = Depends(get_db),
 ):
+    system_settings_service.require_downloads_enabled(db)
     track = library_service.get_track(db, payload.track_id)
     if track is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Track not found")
@@ -68,6 +75,7 @@ def delete_request(request_id: str, user: User = Depends(get_current_user), db: 
 
 @router.post("/{request_id}/retry", response_model=MusicRequestOut)
 async def retry_request(request_id: str, user: User = Depends(get_current_user), db: DbSession = Depends(get_db)):
+    system_settings_service.require_downloads_enabled(db)
     req = request_service.get_request(db, request_id)
     if req is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Request not found")
@@ -231,6 +239,7 @@ async def youtube_download(
     user: User = Depends(get_current_user),
     db: DbSession = Depends(get_db),
 ):
+    system_settings_service.require_downloads_enabled(db)
     req, track = _failed_request_track(request_id, user, db)
     destination = await youtube_fallback_service.download_selected(video_id=payload.video_id, track=track)
     track.provider = "manual"

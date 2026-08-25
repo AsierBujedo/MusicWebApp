@@ -25,3 +25,8 @@ async def emit_track_updated(
     if progress is not None:
         event["progress"] = progress
     await event_manager.publish(event, audience_user_ids=audience_user_ids, include_admins=True)
+
+
+async def emit_system_updated(topic: str, payload: dict) -> None:
+    """Broadcast operational toggles to all signed-in sessions."""
+    await event_manager.publish({"type": "system.updated", "topic": topic, **payload}, audience_user_ids=None, include_admins=True)

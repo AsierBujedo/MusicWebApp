@@ -17,6 +17,7 @@ interface LibraryContextValue {
   isFavorite: (id: string) => boolean
   toggleFavorite: (track: Track) => Promise<void>
   requestTrack: (track: Track) => void
+  downloadsAvailable: boolean
   addToPlaylist: (track: Track) => void
 }
 
@@ -34,6 +35,8 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
 
   const { data: favorites } = useSWR<Track[]>(user ? "favorites" : null, () => api.getFavorites())
   const { data: playlists } = useSWR<Playlist[]>(user ? "playlists" : null, () => api.getPlaylists())
+  const { data: downloadAvailability } = useSWR(user ? "downloads:availability" : null, () => api.getDownloadAvailability(), { refreshInterval: 30_000 })
+  const downloadsAvailable = downloadAvailability?.enabled ?? true
 
   const favoriteIds = React.useMemo(() => new Set((favorites ?? []).map((t) => t.id)), [favorites])
 
@@ -70,7 +73,7 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
   )
 
   const confirmRequest = React.useCallback(async () => {
-    if (!requestTarget) return
+    if (!requestTarget || !downloadsAvailable) return
     setRequesting(true)
     try {
       await api.createRequest({ type: "track", trackId: requestTarget.id })
@@ -121,6 +124,7 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
     isFavorite,
     toggleFavorite,
     requestTrack: setRequestTarget,
+    downloadsAvailable,
     addToPlaylist: setPlaylistTarget,
   }
 

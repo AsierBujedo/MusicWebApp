@@ -1,5 +1,6 @@
 import type {
   AdminStats,
+  DownloadAvailability,
   HistoryEntry,
   MusicRequest,
   Playlist,
@@ -48,6 +49,7 @@ class MockApi implements MusicApi {
   private services: ServiceHealth[] = MOCK_SERVICES.map((s) => ({ ...s }))
   private listeners = new Set<(e: RealtimeEvent) => void>()
   private currentUserId: string | null = null
+  private downloadsEnabled = true
   // Per-user passwords. Any password logs in initially; once changed here,
   // the new password is enforced so "current password" checks feel real.
   private passwords = new Map<string, string>()
@@ -184,9 +186,15 @@ class MockApi implements MusicApi {
     if (!req) throw new ApiError("No encontramos esta solicitud.", 404)
     return { ...req }
   }
+  async getDownloadAvailability(): Promise<DownloadAvailability> {
+    return { enabled: this.downloadsEnabled, message: this.downloadsEnabled ? null : "Las descargas de canciones están temporalmente fuera de servicio." }
+  }
 
   async createRequest(input: CreateRequestInput): Promise<MusicRequest> {
     await delay(400)
+    if (!this.downloadsEnabled) {
+      throw new ApiError("Las descargas de canciones están temporalmente fuera de servicio.", 503)
+    }
     const me = this.me()
     const track = this.tracks.get(input.trackId)
     if (!track) throw new ApiError("No encontramos esta canción.", 404)
@@ -216,6 +224,9 @@ class MockApi implements MusicApi {
 
   async retryRequest(id: string): Promise<MusicRequest> {
     await delay(300)
+    if (!this.downloadsEnabled) {
+      throw new ApiError("Las descargas de canciones están temporalmente fuera de servicio.", 503)
+    }
     const me = this.me()
     const req = this.requests.find((r) => r.id === id)
     if (!req) throw new ApiError("No encontramos esta solicitud.", 404)
@@ -515,6 +526,10 @@ class MockApi implements MusicApi {
       .slice()
       .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
       .map((r) => ({ ...r }))
+  }
+  async setDownloadAvailability(enabled: boolean): Promise<DownloadAvailability> {
+    this.downloadsEnabled = enabled
+    return this.getDownloadAvailability()
   }
 
   async setRequestStatus(id: string, status: "APPROVED" | "REJECTED"): Promise<MusicRequest> {

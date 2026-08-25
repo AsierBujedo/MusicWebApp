@@ -2,14 +2,15 @@
 
 import useSWR from "swr"
 import * as React from "react"
-import { RefreshCw, Server, Activity, RotateCcw } from "lucide-react"
+import { RefreshCw, Server, Activity, RotateCcw, Power } from "lucide-react"
 import { api } from "@/lib/api"
-import type { ServiceHealth, ServiceStatus } from "@/types/api"
+import type { DownloadAvailability, ServiceHealth, ServiceStatus } from "@/types/api"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { Modal } from "@/components/ui/modal"
 import { useToast } from "@/components/providers/toast-provider"
+import { useAuth } from "@/components/providers/auth-provider"
 
 const STATUS_META: Record<ServiceStatus, { label: string; dot: string; text: string; ring: string }> = {
   online: {
@@ -52,12 +53,18 @@ function ServiceRow({ service }: { service: ServiceHealth }) {
 }
 
 export default function AdminServicesPage() {
+  const { isAdmin } = useAuth()
   const { data, isLoading, mutate, isValidating } = useSWR<ServiceHealth[]>("admin:services", () => api.getServices(), {
     refreshInterval: 15000,
   })
+  const { data: downloadAvailability, mutate: mutateDownloadAvailability } = useSWR<DownloadAvailability>(
+    isAdmin ? "downloads:availability" : null,
+    () => api.getDownloadAvailability(),
+  )
   const { toast } = useToast()
   const [confirmReset, setConfirmReset] = React.useState(false)
   const [resetting, setResetting] = React.useState(false)
+  const [updatingDownloads, setUpdatingDownloads] = React.useState(false)
 
   const services = data ?? []
   const online = services.filter((s) => s.status === "online").length
@@ -73,6 +80,23 @@ export default function AdminServicesPage() {
       toast("No se pudo vaciar o reiniciar slskd", "error")
     } finally {
       setResetting(false)
+    }
+  }
+
+  const toggleDownloads = async () => {
+    const enabled = !(downloadAvailability?.enabled ?? true)
+    setUpdatingDownloads(true)
+    try {
+      await api.setDownloadAvailability(enabled)
+      await mutateDownloadAvailability({ enabled }, { revalidate: false })
+      toast(
+        enabled ? "Las descargas se han reactivado" : "Las descargas están temporalmente fuera de servicio",
+        "success",
+      )
+    } catch {
+      toast("No se pudo cambiar el estado de las descargas", "error")
+    } finally {
+      setUpdatingDownloads(false)
     }
   }
 
@@ -96,6 +120,32 @@ export default function AdminServicesPage() {
             {online} de {services.length} servicios operativos
           </span>
         </div>
+      ) : null}
+
+      {isAdmin ? (
+        <section className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="font-semibold">Descargas de canciones</h2>
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+              {downloadAvailability?.enabled ?? true
+                ? "Las solicitudes nuevas se aceptan con normalidad."
+                : "Los usuarios ven el aviso de mantenimiento y no pueden solicitar ni reintentar descargas."}
+            </p>
+          </div>
+          <Button
+            variant={(downloadAvailability?.enabled ?? true) ? "danger" : "secondary"}
+            className="w-full sm:w-auto"
+            disabled={updatingDownloads || !downloadAvailability}
+            onClick={() => void toggleDownloads()}
+          >
+            <Power className="h-4 w-4" aria-hidden />
+            {updatingDownloads
+              ? "Actualizando…"
+              : (downloadAvailability?.enabled ?? true)
+                ? "Poner en mantenimiento"
+                : "Reactivar descargas"}
+          </Button>
+        </section>
       ) : null}
 
       <div className="space-y-3">

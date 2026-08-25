@@ -41,6 +41,11 @@ export interface Track {
   progress?: number // 0-100 when DOWNLOADING
 }
 
+export interface DownloadAvailability {
+  enabled: boolean
+  message?: string | null
+}
+
 export interface Album {
   id: string
   title: string
@@ -173,3 +178,4 @@ export type RealtimeEvent =
       status: TrackStatus
       progress?: number
     }
+  | { type: "system.updated"; topic: "downloads.availability"; enabled: boolean }

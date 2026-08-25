@@ -20,7 +20,7 @@ from app.database import SessionLocal
 from app.models.base import utcnow
 from app.models.music_request import MusicRequest
 from app.models.track import Track
-from app.services import event_service, request_service, spotify_service
+from app.services import event_service, request_service, spotify_service, system_settings_service
 from app.services.integrations import get_droppedneedle_client, get_navidrome_client
 from app.services.integrations.base import ExternalTrack
 
@@ -100,6 +100,10 @@ async def _reconcile_completed_tracks(db) -> None:
 
 
 async def _advance_request(db, req: MusicRequest) -> None:
+    # Maintenance mode holds queued work but still lets existing remote tasks be
+    # polled and imported. Nothing new is submitted to DroppedNeedle.
+    if req.status in {"APPROVED", "FAILED"} and not system_settings_service.downloads_enabled(db):
+        return
     if req.status == "FAILED":
         await _resume_soulseek_retry(db, req)
         return

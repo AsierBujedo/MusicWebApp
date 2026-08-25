@@ -9,7 +9,7 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.track import Track
 from app.models.user import User
-from app.services import library_service
+from app.services import library_service, system_settings_service
 from app.services.integrations import get_droppedneedle_client
 from app.services.integrations.base import ExternalTrack
 from app.services.serializers import track_out
@@ -117,6 +117,7 @@ async def get_album(album_id: str, artist: str | None = Query(default=None), tit
 
 @router.post("/albums/{album_id}/request")
 async def request_album(album_id: str, user: User = Depends(get_current_user), db: DbSession = Depends(get_db)):
+    system_settings_service.require_downloads_enabled(db)
     _allow_bulk_requests(user)
     client = get_droppedneedle_client()
     try:
@@ -132,7 +133,8 @@ async def request_album(album_id: str, user: User = Depends(get_current_user), d
 
 
 @router.post("/artists/{artist_id}/request")
-async def request_artist(artist_id: str, user: User = Depends(get_current_user)):
+async def request_artist(artist_id: str, user: User = Depends(get_current_user), db: DbSession = Depends(get_db)):
+    system_settings_service.require_downloads_enabled(db)
     _allow_bulk_requests(user)
     client = get_droppedneedle_client()
     try:

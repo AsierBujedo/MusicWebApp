@@ -17,7 +17,7 @@ from app.models.music_request import MusicRequest
 from app.models.track import Track
 from app.models.user import User, UserFeatureFlag
 from app.schemas.user import CreateUserInput, UpdateUserInput, UpdateFeatureFlagsInput
-from app.services import event_service, request_service, user_service
+from app.services import event_service, request_service, system_settings_service, user_service
 from app.services.integrations import (
     get_droppedneedle_client,
     get_navidrome_client,
@@ -190,6 +190,24 @@ def delete_user(
 
 
 # ------------------------------ Requests ------------------------------
+
+@router.get("/requests/availability")
+def admin_download_availability(_admin: User = Depends(get_current_admin), db: DbSession = Depends(get_db)):
+    return {"enabled": system_settings_service.downloads_enabled(db)}
+
+
+@router.put("/requests/availability")
+async def set_admin_download_availability(
+    payload: dict,
+    _admin: User = Depends(get_current_admin),
+    db: DbSession = Depends(get_db),
+):
+    enabled = payload.get("enabled")
+    if not isinstance(enabled, bool):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="enabled debe ser booleano")
+    result = system_settings_service.set_downloads_enabled(db, enabled)
+    await event_service.emit_system_updated("downloads.availability", {"enabled": result})
+    return {"enabled": result}
 
 @router.get("/requests")
 def all_requests(_admin: User = Depends(require_admin_feature("admin.requests")), db: DbSession = Depends(get_db)):

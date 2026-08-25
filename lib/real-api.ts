@@ -1,5 +1,6 @@
 import type {
   AdminStats,
+  DownloadAvailability,
   HistoryEntry,
   MusicRequest,
   Playlist,
@@ -31,6 +32,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     // Never surface raw technical errors to end users.
     if (res.status === 401) throw new ApiError("Necesitas iniciar sesión.", 401)
     if (res.status === 403) throw new ApiError("No tienes permiso para esto.", 403)
+    if (res.status === 503) {
+      let detail = "El servicio está temporalmente fuera de servicio."
+      try {
+        const body = await res.json() as { detail?: unknown }
+        if (typeof body.detail === "string" && body.detail) detail = body.detail
+      } catch { /* retain the safe fallback */ }
+      throw new ApiError(detail, 503)
+    }
     throw new ApiError("Ha ocurrido un problema. Inténtalo de nuevo.", res.status)
   }
 
@@ -97,6 +106,9 @@ class RealApi implements MusicApi {
   }
   getRequest(id: string) {
     return request<MusicRequest>(`/api/requests/${id}`)
+  }
+  getDownloadAvailability() {
+    return request<DownloadAvailability>("/api/requests/availability")
   }
   createRequest(input: CreateRequestInput) {
     return request<MusicRequest>("/api/requests", { method: "POST", body: JSON.stringify(input) })
@@ -251,6 +263,9 @@ class RealApi implements MusicApi {
   }
   getAllRequests() {
     return request<MusicRequest[]>("/api/admin/requests")
+  }
+  setDownloadAvailability(enabled: boolean) {
+    return request<DownloadAvailability>("/api/admin/requests/availability", { method: "PUT", body: JSON.stringify({ enabled }) })
   }
   setRequestStatus(id: string, status: "APPROVED" | "REJECTED") {
     const action = status === "REJECTED" ? "reject" : "approve"

@@ -32,6 +32,9 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         mutate((key) => typeof key === "string" && key.startsWith("track:"))
         mutate((key) => typeof key === "string" && key.startsWith("playlist:"))
       }
+      if (event.type === "system.updated" && event.topic === "downloads.availability") {
+        mutate("downloads:availability")
+      }
     })
     return unsubscribe
   }, [mutate, toast])

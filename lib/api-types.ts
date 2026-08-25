@@ -1,5 +1,6 @@
 import type {
   AdminStats,
+  DownloadAvailability,
   AlbumCatalog,
   ArtistCatalog,
   HistoryEntry,
@@ -112,6 +113,7 @@ export interface MusicApi {
   // requests (current user)
   getRequests(): Promise<MusicRequest[]>
   getRequest(id: string): Promise<MusicRequest>
+  getDownloadAvailability(): Promise<DownloadAvailability>
   createRequest(input: CreateRequestInput): Promise<MusicRequest>
   deleteRequest(id: string): Promise<void>
   retryRequest(id: string): Promise<MusicRequest>
@@ -166,6 +168,7 @@ export interface MusicApi {
   deleteUser(id: string): Promise<void>
   updateUserFeatureFlags(id: string, featureFlags: string[]): Promise<User>
   getAllRequests(): Promise<MusicRequest[]>
+  setDownloadAvailability(enabled: boolean): Promise<DownloadAvailability>
   setRequestStatus(id: string, status: "APPROVED" | "REJECTED"): Promise<MusicRequest>
   getServices(): Promise<ServiceHealth[]>
   resetSlskd(): Promise<{ success: boolean; cancelled: number; failed: number; restarted: boolean }>

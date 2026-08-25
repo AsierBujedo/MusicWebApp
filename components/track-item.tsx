@@ -28,7 +28,7 @@ export function TrackItem({
   index?: number
 }) {
   const { play, currentTrack, isPlaying, togglePlay } = usePlayer()
-  const { isFavorite, toggleFavorite, requestTrack, addToPlaylist } = useLibrary()
+  const { isFavorite, toggleFavorite, requestTrack, addToPlaylist, downloadsAvailable } = useLibrary()
   const { isAdmin } = useAuth()
   const { toast } = useToast()
   const { mutate } = useSWRConfig()
@@ -121,7 +121,7 @@ export function TrackItem({
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
           </span>
         ) : (track.requestable || track.status === "REQUESTABLE" || track.status === "UNAVAILABLE") ? (
-          <Button size="sm" variant="secondary" onClick={() => requestTrack(track)} className="gap-1.5">
+          <Button size="sm" variant="secondary" onClick={() => requestTrack(track)} disabled={!downloadsAvailable} title={downloadsAvailable ? undefined : "Las descargas están temporalmente fuera de servicio"} className="gap-1.5">
             <Download className="h-4 w-4" />
             <span className="hidden sm:inline">Solicitar</span>
           </Button>
