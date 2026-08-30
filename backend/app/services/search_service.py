@@ -11,6 +11,7 @@ from __future__ import annotations
 import unicodedata
 from typing import Any, Dict, List
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
 from app.config import settings
@@ -18,6 +19,7 @@ from app.services import library_service
 from app.services.integrations import get_droppedneedle_client, get_navidrome_client
 from app.services.integrations.base import ExternalAlbum, ExternalArtist, ExternalTrack
 from app.services.serializers import track_out
+from app.models.track import Track
 
 
 def _album_out(a: ExternalAlbum) -> Dict[str, Any]:
@@ -84,6 +86,38 @@ def _relevant_artists(items: List[ExternalArtist], query: str) -> List[ExternalA
     return [item for item in items if _relevance(query, artist=item.name)]
 
 
+def _cached_tracks(db: DbSession, query: str, limit: int) -> List[Track]:
+    """Return catalogue rows Resonar has already learned about.
+
+    Current DroppedNeedle releases deliberately expose artists and albums from
+    ``/search`` but not recordings.  Album pages still cache their recordings
+    in Resonar, though, and those must remain searchable even while
+    MusicBrainz is slow or temporarily unavailable.  Keep this a bounded
+    in-process filter so it works on both SQLite and PostgreSQL and shares the
+    same conservative relevance rules as provider results.
+    """
+    candidates = db.scalars(
+        select(Track)
+        .order_by(Track.available.desc(), Track.updated_at.desc())
+        .limit(max(limit * 20, 200))
+    ).all()
+    ranked = [
+        (
+            item,
+            _relevance(query, artist=item.artist, title=item.title, album=item.album or ""),
+        )
+        for item in candidates
+    ]
+    return [
+        item
+        for item, score in sorted(
+            ranked,
+            key=lambda entry: (-entry[1], not entry[0].available, entry[0].title.casefold()),
+        )
+        if score
+    ][:limit]
+
+
 async def search_local(db: DbSession, query: str) -> Dict[str, Any]:
     """Fast path: search only the already playable Navidrome library."""
     q = _normalise_query(query)
@@ -113,7 +147,18 @@ async def search_external(db: DbSession, query: str) -> Dict[str, Any]:
     finally:
         await client.aclose()
 
+    # Preserve previously opened album tracks when the live recording lookup
+    # is unavailable.  This is intentionally merged with (rather than used
+    # instead of) MusicBrainz so fresh searches still discover new music.
+    cached = _cached_tracks(db, q, settings.search_result_limit)
+    live_keys = {(item.title.casefold(), item.artist.casefold()) for item in tracks}
+    cached_out = [
+        track_out(item)
+        for item in cached
+        if (item.title.casefold(), item.artist.casefold()) not in live_keys
+    ]
     tracks_out = [track_out(library_service.upsert_external_track(db, item)) for item in tracks]
+    tracks_out.extend(cached_out)
     artists: list[ExternalArtist] = []
     albums: list[ExternalAlbum] = []
     artist_index: dict[str, ExternalArtist] = {}
@@ -181,6 +226,14 @@ async def search(db: DbSession, query: str) -> Dict[str, Any]:
     for ext in merged:
         track = library_service.upsert_external_track(db, ext)
         tracks_out.append(track_out(track))
+    # Keep the legacy aggregate endpoint behaviour aligned with the split
+    # frontend endpoints: cached catalogue tracks remain useful during an
+    # upstream MusicBrainz outage.
+    for cached in _cached_tracks(db, q, limit):
+        key = identity(cached)
+        if key not in seen:
+            tracks_out.append(track_out(cached))
+            seen.add(key)
 
     # DroppedNeedle's public search is primarily track-oriented. Derive artist
     # and release cards from those tracks too, so an artist absent from the
